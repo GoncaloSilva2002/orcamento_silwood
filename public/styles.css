@@ -3226,3 +3226,349 @@ body.is-admin .app-top .auth-panel {
     grid-template-columns: minmax(90px, 1fr) minmax(110px, 1fr) 62px;
   }
 }
+
+/* Mobile layout. Kept last so it wins over the legacy responsive rules. */
+@media screen and (max-width: 720px) {
+  html,
+  body {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: hidden;
+  }
+
+  body.sidebar-collapsed .app-shell,
+  .app-shell {
+    display: block;
+    min-height: 100vh;
+  }
+
+  body.sidebar-collapsed .side-menu,
+  .side-menu {
+    position: sticky;
+    top: 0;
+    z-index: 60;
+    width: 100%;
+    min-width: 0;
+    height: auto;
+    overflow: visible;
+    padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+    border: 0;
+    border-bottom: 1px solid #dedee4;
+    background: rgba(255, 255, 255, .97);
+    box-shadow: 0 4px 14px rgba(15, 23, 42, .08);
+    backdrop-filter: blur(12px);
+  }
+
+  .brand-block,
+  .sidebar-toggle,
+  .side-menu .status {
+    display: none !important;
+  }
+
+  .side-nav {
+    display: flex;
+    gap: 6px;
+    width: 100%;
+    margin: 0;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .side-nav::-webkit-scrollbar {
+    display: none;
+  }
+
+  .side-nav :is(a, button) {
+    display: flex;
+    flex: 0 0 auto;
+    grid-template-columns: none;
+    gap: 6px;
+    width: auto;
+    min-width: 126px;
+    min-height: 42px;
+    padding: 8px 10px;
+    border: 1px solid #e1e2e7;
+    border-radius: 9px;
+    background: #f7f7f8;
+    color: #343541;
+    font-size: 12px;
+    line-height: 1.15;
+    white-space: nowrap;
+  }
+
+  .side-nav :is(a, button).active {
+    border-color: #343541;
+    background: #343541;
+    color: #fff;
+  }
+
+  .side-nav :is(a, button) span {
+    font-size: 9px;
+  }
+
+  .side-actions {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .side-actions > button {
+    min-height: 40px;
+    padding: 6px;
+    font-size: 11px;
+  }
+
+  .history-control {
+    grid-column: 1 / -1;
+    max-height: 126px;
+    overflow: auto;
+  }
+
+  body.sidebar-collapsed .sheet-page,
+  .sheet-page {
+    width: 100%;
+    min-width: 0;
+    padding: 8px;
+  }
+
+  .app-top {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    margin-bottom: 8px;
+  }
+
+  .app-top > div:first-child {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 8px;
+  }
+
+  .app-top h1 {
+    font-size: 20px;
+  }
+
+  .top-logo,
+  .document-tag {
+    display: none;
+  }
+
+  .top-right,
+  .app-top .auth-panel,
+  .app-top .auth-form {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .app-top .auth-panel {
+    display: grid;
+    justify-content: stretch;
+    gap: 6px;
+  }
+
+  .app-top .auth-form {
+    grid-template-columns: 1fr;
+  }
+
+  .app-top .auth-form input,
+  .app-top .auth-panel button {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .excel-sheet,
+  .supplier-sheet,
+  .users-sheet,
+  .visual-sheet {
+    width: 100%;
+    min-width: 0;
+    overflow: visible;
+    padding: 8px;
+    border-radius: 10px;
+  }
+
+  .sheet-title {
+    margin-bottom: 8px;
+    padding: 9px;
+    font-size: 17px;
+  }
+
+  .client-grid {
+    grid-template-columns: 86px minmax(0, 1fr);
+    min-width: 0;
+    gap: 5px;
+  }
+
+  .client-grid > div {
+    min-width: 0;
+    padding: 7px 8px;
+  }
+
+  .client-grid input,
+  .client-grid select {
+    min-height: 40px;
+    font-size: 16px;
+  }
+
+  body.is-standard-user .kpi-row,
+  .kpi-row {
+    grid-template-columns: 1fr;
+    gap: 6px;
+    min-width: 0;
+  }
+
+  .kpi {
+    min-height: 62px;
+  }
+
+  .section-title-row,
+  .supplier-heading,
+  .supplier-tools,
+  .visual-heading {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 8px;
+    align-items: stretch;
+  }
+
+  .section-title-row button,
+  .supplier-heading button,
+  .supplier-tools button,
+  .supplier-search input {
+    width: 100%;
+    min-height: 44px;
+  }
+
+  #modulesGrid,
+  #finalGrid,
+  .supplier-table-wrap,
+  #usersGrid {
+    width: 100%;
+    max-width: 100%;
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  #modulesGrid .modules-table {
+    min-width: 1160px;
+  }
+
+  #finalGrid .final-table {
+    min-width: 900px;
+  }
+
+  .supplier-table,
+  .users-table {
+    min-width: 760px;
+  }
+
+  .supplier-tabs,
+  .supplier-subtabs {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    scrollbar-width: none;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .supplier-tabs::-webkit-scrollbar,
+  .supplier-subtabs::-webkit-scrollbar {
+    display: none;
+  }
+
+  .supplier-tabs button,
+  .supplier-subtabs button {
+    flex: 0 0 auto;
+    min-height: 40px;
+  }
+
+  .supplier-add-row,
+  .supplier-add-row-edge,
+  .user-form-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .supplier-add-row input,
+  .supplier-add-row select,
+  .supplier-add-row button,
+  .user-form-grid input,
+  .user-form-grid select,
+  .user-form-grid button {
+    width: 100%;
+    min-height: 44px;
+    font-size: 16px;
+  }
+
+  .plate-compare-header {
+    display: grid;
+    grid-template-columns: 1fr;
+    align-items: start;
+  }
+
+  .plate-compare-header span {
+    width: fit-content;
+    max-width: 100%;
+  }
+
+  .plate-option-row {
+    grid-template-columns: 1fr;
+    gap: 7px;
+  }
+
+  .plate-option-row input {
+    min-height: 42px;
+    font-size: 16px;
+  }
+
+  .plate-cost strong {
+    justify-content: flex-start;
+  }
+
+  .plate-delete-button {
+    width: 44px;
+    min-height: 40px;
+  }
+
+  .visual-preview-grid,
+  .visual-preview-meta,
+  .visual-preview-controls {
+    grid-template-columns: 1fr;
+  }
+
+  .visual-preview-controls label:first-child {
+    grid-column: auto;
+  }
+
+  .drawer-split-backdrop {
+    align-items: end;
+    padding: 8px;
+  }
+
+  .drawer-split-modal {
+    max-height: calc(100dvh - 16px);
+    border-radius: 14px 14px 8px 8px;
+  }
+
+  .drawer-split-row,
+  .module-split-row {
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-split-row span {
+    grid-column: auto;
+  }
+
+  .drawer-split-actions {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .drawer-split-actions button {
+    min-height: 44px;
+  }
+}
