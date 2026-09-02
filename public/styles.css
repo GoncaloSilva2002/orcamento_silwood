@@ -2936,10 +2936,10 @@ body.auth-gate-active .print-sheet {
   grid-template-columns: 230px minmax(0, 1fr);
   gap: 0;
   padding: 0;
-  border: 1px solid #909090;
+  border: 1px solid #b8b8b8;
   border-radius: 0;
   background: var(--sheet);
-  box-shadow: 0 12px 30px rgba(0,0,0,.12);
+  box-shadow: 0 12px 30px rgba(0,0,0,.10);
   overflow: hidden;
 }
 
@@ -2952,8 +2952,8 @@ body.auth-gate-active .print-sheet {
   gap: 20px;
   min-height: 390px;
   padding: 28px 18px;
-  border-right: 1px solid #172a4b;
-  background: #203864;
+  border-right: 1px solid #d0d0d0;
+  background: #f4f4f4;
   color: #fff;
 }
 
@@ -2961,12 +2961,11 @@ body.auth-gate-active .print-sheet {
   width: 168px;
   max-width: 100%;
   height: auto;
-  filter: invert(1) brightness(1.9);
-  opacity: .95;
+  opacity: .92;
 }
 
 .login-brand span {
-  color: #a9d18e;
+  color: #555;
   font-size: 10px;
   font-weight: 800;
   text-align: center;
@@ -2975,7 +2974,7 @@ body.auth-gate-active .print-sheet {
 .login-card h1 {
   margin: 0;
   padding: 28px 28px 0;
-  color: #203864;
+  color: #222;
   font-size: 24px;
   line-height: 1.12;
 }
@@ -2983,7 +2982,7 @@ body.auth-gate-active .print-sheet {
 .login-card p {
   margin: 0;
   padding: 0 28px;
-  color: #52616f;
+  color: #555;
   line-height: 1.45;
 }
 
@@ -2994,7 +2993,7 @@ body.auth-gate-active .print-sheet {
 
 .login-gate-form input {
   min-height: 42px;
-  border: 1px solid #cfd7e3;
+  border: 1px solid #d0d0d0;
   border-radius: 7px;
   background: #fff;
   padding: 8px 10px;
@@ -3010,16 +3009,16 @@ body.auth-gate-active .print-sheet {
 }
 
 .login-gate-form button {
-  border-color: #203864;
-  background: #203864;
+  border-color: #333;
+  background: #333;
   color: #fff;
 }
 
 .guest-button {
   margin: 10px 28px 0;
-  border: 1px solid #548235;
-  background: #eef7eb;
-  color: #30531f;
+  border: 1px solid #c9c9c9;
+  background: #f7f7f7;
+  color: #333;
 }
 
 .login-note {
@@ -3061,7 +3060,7 @@ body.auth-gate-active .print-sheet {
     min-height: 142px;
     gap: 10px;
     border-right: 0;
-    border-bottom: 1px solid #172a4b;
+    border-bottom: 1px solid #d0d0d0;
   }
 
   .login-brand img {
