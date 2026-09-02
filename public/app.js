@@ -66,6 +66,7 @@ const authForm = document.querySelector('#authForm');
 const loginUser = document.querySelector('#loginUser');
 const loginPassword = document.querySelector('#loginPassword');
 const loginButton = document.querySelector('#loginButton');
+const authError = document.querySelector('#authError');
 const logoutButton = document.querySelector('#logoutButton');
 
 function money(value) { return euro.format(Number(value) || 0); }
@@ -84,6 +85,11 @@ function scheduleSupplierSearch(delay) {
   supplierSearchTimer = window.setTimeout(applySupplierSearch, delay === undefined ? 120 : delay);
 }
 function canManagePrices() { return state.isAdmin === true; }
+function setLoginError(message) {
+  if (!authError) return;
+  authError.textContent = message || '';
+  authError.hidden = !message;
+}
 function updateAccessUi() {
   document.body.classList.toggle('is-admin', canManagePrices());
   document.body.classList.toggle('is-standard-user', !canManagePrices());
@@ -119,13 +125,20 @@ async function loadSession() {
 async function loginAdmin() {
   const username = loginUser ? loginUser.value.trim() : '';
   const password = loginPassword ? loginPassword.value : '';
+  setLoginError('');
   const response = await fetch('/api/login', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
   });
   const data = await response.json().catch(function () { return {}; });
-  if (!response.ok) throw new Error(data.error || 'Credenciais invalidas.');
+  if (!response.ok) {
+    const message = response.status === 401
+      ? 'Utilizador ou palavra-passe incorretos.'
+      : (data.error || 'Não foi possível iniciar sessão.');
+    setLoginError(message);
+    throw new Error(message);
+  }
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
   state.userRole = data.role || (state.isAdmin ? 'admin' : 'user');
@@ -6046,6 +6059,8 @@ if (loginButton) {
     loginAdmin().catch(function (error) { sourceStatus.textContent = error.message; });
   });
 }
+if (loginUser) loginUser.addEventListener('input', function () { setLoginError(''); });
+if (loginPassword) loginPassword.addEventListener('input', function () { setLoginError(''); });
 if (loginPassword) {
   loginPassword.addEventListener('keydown', function (event) {
     if (event.key === 'Enter') {
