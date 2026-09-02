@@ -882,6 +882,10 @@ function persistCurrentQuoteOnly() {
 
 function quoteHistoryStore() {
   if (state.usesSupabase) return state.quoteHistory || [];
+  return localQuoteHistoryStore();
+}
+
+function localQuoteHistoryStore() {
   try {
     return JSON.parse(localStorage.getItem(quoteHistoryKey) || '[]') || [];
   } catch (error) {
@@ -918,6 +922,33 @@ function remoteHistoryEnabled() {
   return state.usesSupabase && state.isAuthenticated;
 }
 
+async function migrateLocalQuoteHistoryToRemote() {
+  if (!remoteHistoryEnabled() || state.quoteHistoryOwnerId) return false;
+  const localEntries = localQuoteHistoryStore();
+  if (!localEntries.length) return false;
+  const response = await fetch('/api/quote-history/import', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({
+      entries: localEntries.map(function (entry) {
+        return {
+          id: entry.id,
+          snapshotKey: entry.id,
+          label: entry.label,
+          updatedAt: entry.updatedAt,
+          snapshot: entry.snapshot
+        };
+      })
+    })
+  });
+  const data = await response.json().catch(function () { return {}; });
+  if (!response.ok) throw new Error(data.error || 'Não foi possível transferir o histórico local para a base de dados.');
+  state.quoteHistory = data.entries || [];
+  localStorage.removeItem(quoteHistoryKey);
+  renderQuoteHistory();
+  return true;
+}
+
 async function loadQuoteHistoryList(userId, label) {
   state.quoteHistoryOwnerId = userId || '';
   state.quoteHistoryOwnerLabel = label || '';
@@ -927,6 +958,7 @@ async function loadQuoteHistoryList(userId, label) {
     renderQuoteHistory();
     return;
   }
+  if (!userId && await migrateLocalQuoteHistoryToRemote()) return;
   const query = userId ? '?userId=' + encodeURIComponent(userId) : '';
   const response = await fetch('/api/quote-history' + query);
   const data = await response.json().catch(function () { return {}; });
@@ -954,7 +986,15 @@ async function saveQuoteHistoryRemote(snapshot) {
 }
 
 function currentQuoteSnapshot() {
-  return { client: clone(state.client), modules: clone(state.modules), extras: clone(state.extras), pricingMode: state.pricingMode };
+  return {
+    version: 2,
+    savedAt: new Date().toISOString(),
+    client: clone(state.client),
+    modules: clone(state.modules),
+    extras: clone(state.extras),
+    pricingMode: state.pricingMode,
+    quote: clone(state.quote)
+  };
 }
 
 async function saveCurrentQuoteToHistory() {
@@ -1016,6 +1056,7 @@ async function applyQuoteSnapshot(entry, labelPrefix) {
   state.modules = (entry.snapshot.modules || []).map(hydrateModule);
   state.extras = (entry.snapshot.extras || []).map(hydrateExtra);
   state.pricingMode = entry.snapshot.pricingMode === 'reseller' ? 'reseller' : 'normal';
+  state.quote = entry.snapshot.quote ? clone(entry.snapshot.quote) : null;
   persistCurrentQuoteOnly();
   renderClient();
   renderModules();
@@ -1027,7 +1068,14 @@ async function applyQuoteSnapshot(entry, labelPrefix) {
   quoteActions.hidden = false;
   pageTitle.textContent = state.pricingMode === 'reseller' ? 'Orçamento revendedor' : 'Orçamento';
   quoteTitle.textContent = cleanDisplayText(state.pricingMode === 'reseller' ? 'ORÃ‡AMENTO REVENDEDOR' : 'ORÃ‡AMENTO');
-  await calculate();
+  if (state.quote) {
+    renderKpis();
+    updateModuleTotals();
+    renderFinal();
+    renderPrint();
+  } else {
+    await calculate();
+  }
   sourceStatus.textContent = labelPrefix + ': ' + selectedLabel;
 }
 

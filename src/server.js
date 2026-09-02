@@ -356,6 +356,32 @@ async function saveQuoteHistoryForSession(session, body) {
   });
 }
 
+async function importQuoteHistoryForSession(session, body) {
+  requireSupabaseHistory();
+  const ownerId = session.userId;
+  if (!ownerId) throw new Error('Sessao sem utilizador Supabase associado.');
+  const entries = Array.isArray(body?.entries) ? body.entries.slice(0, 100) : [];
+  const rows = entries.map((entry) => {
+    const snapshot = entry?.snapshot && typeof entry.snapshot === 'object' ? entry.snapshot : {};
+    const label = String(entry?.label || 'Sem nome').trim() || 'Sem nome';
+    const snapshotKey = String(entry?.snapshotKey || entry?.id || label).trim() || label;
+    return {
+      owner_id: ownerId,
+      snapshot_key: snapshotKey,
+      label,
+      snapshot,
+      updated_at: entry?.updatedAt || new Date().toISOString()
+    };
+  }).filter(row => row.snapshot && row.snapshot.client);
+  if (!rows.length) return;
+  await supabaseJson('/rest/v1/quote_history?on_conflict=owner_id,snapshot_key', {
+    method: 'POST',
+    serviceRole: true,
+    headers: { Prefer: 'resolution=merge-duplicates,return=minimal' },
+    body: rows
+  });
+}
+
 async function deleteQuoteHistoryForSession(session, id) {
   requireSupabaseHistory();
   const rows = await supabaseJson('/rest/v1/quote_history?select=id,owner_id&id=eq.' + encodeURIComponent(id), { serviceRole: true });
@@ -1433,6 +1459,16 @@ app.get('/api/quote-history', requireAuth, async (req, res) => {
 app.post('/api/quote-history', requireAuth, async (req, res) => {
   try {
     await saveQuoteHistoryForSession(req.authSession, req.body || {});
+    const entries = await quoteHistoryForSession(req.authSession);
+    res.json({ entries });
+  } catch (error) {
+    res.status(400).json({ error: error.message });
+  }
+});
+
+app.post('/api/quote-history/import', requireAuth, async (req, res) => {
+  try {
+    await importQuoteHistoryForSession(req.authSession, req.body || {});
     const entries = await quoteHistoryForSession(req.authSession);
     res.json({ entries });
   } catch (error) {
