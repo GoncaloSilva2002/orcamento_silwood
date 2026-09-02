@@ -697,16 +697,21 @@ function enhanceWoodSearchFields() {
     el.dataset.field = field;
     button.type = 'button';
     button.className = 'wood-search-button';
-    button.setAttribute('aria-label', 'Pesquisar madeira');
-    button.title = 'Pesquisar madeira';
-    button.textContent = '\u2315';
+    button.setAttribute('aria-label', 'Abrir lista de madeiras');
+    button.title = 'Abrir lista de madeiras';
+    button.textContent = '\u25be';
     button.disabled = select.disabled;
     button.addEventListener('click', function () {
-      el.value = '';
-      if (state.modules[Number(select.dataset.module)]?.[field]) {
-        updateModule(Number(select.dataset.module), field, '');
-      }
       el.focus();
+      if (typeof el.showPicker === 'function') {
+        try {
+          el.showPicker();
+          return;
+        } catch (error) {
+          // Browsers without a datalist picker fall back to the keyboard event.
+        }
+      }
+      el.dispatchEvent(new KeyboardEvent('keydown', { key: 'ArrowDown', bubbles: true }));
     });
     el.addEventListener('change', function () {
       if (!el.value.trim() && state.modules[Number(select.dataset.module)]?.[field]) {
@@ -1153,6 +1158,11 @@ function ensureRoupeiroModuleType() {
   if (!state.typePresets.Roupeiro && state.typePresets.Coluna) {
     state.typePresets.Roupeiro = { ...clone(state.typePresets.Coluna), type: 'Roupeiro' };
   }
+  ['Coluna', 'Roupeiro'].forEach(function (type) {
+    if (!state.typePresets[type]) return;
+    state.typePresets[type].paintDoor = 'Nenhuma';
+    state.typePresets[type].paintInterior = 'Nenhuma';
+  });
 }
 
 function normalizePainting(value) {
