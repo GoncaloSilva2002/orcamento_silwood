@@ -680,6 +680,9 @@ function promptMoney(label, fallback) {
 }
 
 function enhanceWoodSearchFields() {
+  // Em telemóvel, mantém os selects nativos: são mais fáceis de usar e têm o
+  // mesmo comportamento do campo "Tipo de orla". A pesquisa fica no desktop.
+  if (mobileLayoutQuery.matches) return;
   const listIds = { interior: 'moduleInteriorOptions', exterior: 'moduleExteriorOptions' };
   modulesGrid.querySelectorAll('select[data-field="interior"], select[data-field="exterior"]').forEach(function (select) {
     const field = select.dataset.field;
