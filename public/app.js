@@ -6003,7 +6003,10 @@ async function boot() {
   renderFinal();
   await loadQuoteHistoryList().catch(function (error) { sourceStatus.textContent = error.message; });
   clearQuoteDraftStorage();
-  await showView('quote', state.pricingMode, false);
+  // Ativa a vista inicial pelo mesmo fluxo usado ao mudar de tab. O recálculo
+  // final garante que controlos, totais e dependências ficam funcionais logo
+  // na primeira entrada na aplicação.
+  await showView('quote', state.pricingMode, true);
   updateAccessUi();
 }
 
