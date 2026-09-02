@@ -3872,4 +3872,28 @@ body.is-admin .app-top .auth-panel {
     padding-left: 12px;
     padding-right: 12px;
   }
+
+  .app-shell > .app-top {
+    width: 100%;
+    margin: 0;
+    padding: max(8px, env(safe-area-inset-top)) 8px 8px;
+    border-bottom: 1px solid #e5e7eb;
+    background: #fff;
+  }
+
+  .app-shell > .app-top > div:first-child,
+  .app-shell > .app-top > .top-logo,
+  .app-shell > .app-top .document-tag {
+    display: none;
+  }
+
+  .app-shell > .app-top .top-right,
+  .app-shell > .app-top .auth-panel {
+    width: 100%;
+  }
+
+  .app-shell > .app-top .auth-panel > span {
+    display: block;
+    margin-bottom: 2px;
+  }
 }

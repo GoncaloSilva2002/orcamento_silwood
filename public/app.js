@@ -68,6 +68,26 @@ const loginPassword = document.querySelector('#loginPassword');
 const loginButton = document.querySelector('#loginButton');
 const authError = document.querySelector('#authError');
 const logoutButton = document.querySelector('#logoutButton');
+const appShell = document.querySelector('.app-shell');
+const sideMenu = document.querySelector('.side-menu');
+const sheetPage = document.querySelector('.sheet-page');
+const appTop = document.querySelector('.app-top');
+
+const mobileLayoutQuery = window.matchMedia('(max-width: 720px)');
+function syncMobileHeaderPosition() {
+  if (!appShell || !sideMenu || !sheetPage || !appTop || !quoteView) return;
+  if (mobileLayoutQuery.matches) {
+    if (appTop.parentElement !== appShell || appTop.nextElementSibling !== sideMenu) {
+      appShell.insertBefore(appTop, sideMenu);
+    }
+  } else if (appTop.parentElement !== sheetPage || appTop.nextElementSibling !== quoteView) {
+    sheetPage.insertBefore(appTop, quoteView);
+  }
+}
+if (typeof mobileLayoutQuery.addEventListener === 'function') {
+  mobileLayoutQuery.addEventListener('change', syncMobileHeaderPosition);
+}
+syncMobileHeaderPosition();
 
 function money(value) { return euro.format(Number(value) || 0); }
 function scheduleVisualPreview(delay) {
