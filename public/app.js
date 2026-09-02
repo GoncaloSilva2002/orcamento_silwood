@@ -5980,6 +5980,14 @@ async function showView(view, mode, recalculate) {
   if (recalculate !== false) await calculate();
 }
 
+function waitForInitialPaint() {
+  return new Promise(function (resolve) {
+    window.requestAnimationFrame(function () {
+      window.requestAnimationFrame(resolve);
+    });
+  });
+}
+
 async function boot() {
   await loadSession();
   const response = await fetch('/api/bootstrap');
@@ -6027,8 +6035,12 @@ async function boot() {
   // Ativa a vista inicial pelo mesmo fluxo usado ao mudar de tab. O recálculo
   // final garante que controlos, totais e dependências ficam funcionais logo
   // na primeira entrada na aplicação.
-  await showView('quote', state.pricingMode, true);
   updateAccessUi();
+  // Espera que o browser conclua o primeiro desenho e ativa novamente a vista
+  // inicial. Isto executa automaticamente o mesmo fluxo que antes só era
+  // disparado ao clicar em "Orçamento revendedor".
+  await waitForInitialPaint();
+  await showView('quote', state.pricingMode, true);
 }
 
 document.querySelectorAll('.side-nav button').forEach(function (button) {
