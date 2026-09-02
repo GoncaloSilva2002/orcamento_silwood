@@ -4,9 +4,27 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Silwood | Or&ccedil;amento Cozinhas</title>
-  <link rel="stylesheet" href="/styles.css?v=94">
+  <link rel="stylesheet" href="/styles.css?v=95">
 </head>
-<body>
+<body class="auth-gate-active">
+  <section class="login-gate" id="loginGate" aria-label="Entrada na aplica&ccedil;&atilde;o">
+    <div class="login-card">
+      <div class="login-brand">
+        <img src="/assets/silwood-logo.png" alt="Silwood">
+        <span>SIMULADOR DE OR&Ccedil;AMENTO</span>
+      </div>
+      <h1>Entrar na aplica&ccedil;&atilde;o</h1>
+      <p>Usa uma conta para guardar hist&oacute;rico e, se fores admin, gerir pre&ccedil;os e utilizadores.</p>
+      <div class="auth-form login-gate-form" id="authForm">
+        <input id="loginUser" type="text" placeholder="Email / utilizador" autocomplete="username">
+        <input id="loginPassword" type="password" placeholder="Palavra-passe" autocomplete="current-password">
+        <button id="loginButton" type="button">Entrar</button>
+        <p class="auth-error" id="authError" role="alert" aria-live="polite" hidden></p>
+      </div>
+      <button class="guest-button" id="guestButton" type="button">Entrar como convidado</button>
+      <p class="login-note">Convidado e cliente ficam no modo b&aacute;sico. Admin tem acesso completo.</p>
+    </div>
+  </section>
   <div class="app-shell">
     <aside class="side-menu">
       <button class="sidebar-toggle in-sidebar" id="sidebarToggle" type="button" aria-label="Esconder menu" title="Esconder menu">&lsaquo;</button>
@@ -38,12 +56,6 @@
           <div class="document-tag">SIMULADOR DE OR&Ccedil;AMENTO</div>
           <div class="auth-panel" id="authPanel">
             <span id="authState">Modo normal</span>
-            <div class="auth-form" id="authForm">
-              <input id="loginUser" type="text" placeholder="Email / utilizador" autocomplete="username">
-              <input id="loginPassword" type="password" placeholder="Palavra-passe" autocomplete="current-password">
-              <button id="loginButton" type="button">Entrar</button>
-              <p class="auth-error" id="authError" role="alert" aria-live="polite" hidden></p>
-            </div>
             <button id="logoutButton" type="button" hidden>Sair</button>
           </div>
         </div>
@@ -100,7 +112,7 @@
     </main>
   </div>
   <section id="printSheet" class="print-sheet" aria-label="Or&ccedil;amento para impress&atilde;o"></section>
-  <script src="/app.js?v=305"></script>
+  <script src="/app.js?v=306"></script>
 </body>
 </html>
 

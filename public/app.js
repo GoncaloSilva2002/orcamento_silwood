@@ -13,7 +13,7 @@ const transportExtraGroup = 'Transporte e embalamento';
 const transportExtraItems = ['CARGA + TRANSPORTE + EMBALAMENTO', 'EMBALAMENTO + CARGA'];
 const wardrobeDrawerGroup = 'Gavetas Roupeiro';
 const wardrobeDrawerItem = 'Gaveta Roupeiro';
-const state = { client: null, modules: [], extras: [], lists: {}, catalog: { extras: [] }, typePresets: {}, quote: null, original: null, pricingMode: 'normal', supplierPrices: [], pricingRules: null, supplierTab: 'Madeiras / Placas', platePriceView: 'summary', isAdmin: false, isAuthenticated: false, userRole: 'anonymous', userName: '', usesSupabase: false, users: [], usersEnabled: false, quoteHistory: [], quoteHistoryOwnerId: '', quoteHistoryOwnerLabel: '' };
+const state = { client: null, modules: [], extras: [], lists: {}, catalog: { extras: [] }, typePresets: {}, quote: null, original: null, pricingMode: 'normal', supplierPrices: [], pricingRules: null, supplierTab: 'Madeiras / Placas', platePriceView: 'summary', isAdmin: false, isAuthenticated: false, hasEnteredApp: false, userRole: 'anonymous', userName: '', usesSupabase: false, users: [], usersEnabled: false, quoteHistory: [], quoteHistoryOwnerId: '', quoteHistoryOwnerLabel: '' };
 let plateDuplicateReferenceKeysCache = null;
 let plateKnownNameCache = null;
 let knownPlateCodesCache = null;
@@ -68,6 +68,8 @@ const loginPassword = document.querySelector('#loginPassword');
 const loginButton = document.querySelector('#loginButton');
 const authError = document.querySelector('#authError');
 const logoutButton = document.querySelector('#logoutButton');
+const loginGate = document.querySelector('#loginGate');
+const guestButton = document.querySelector('#guestButton');
 const appShell = document.querySelector('.app-shell');
 const sideMenu = document.querySelector('.side-menu');
 const sheetPage = document.querySelector('.sheet-page');
@@ -110,7 +112,21 @@ function setLoginError(message) {
   authError.textContent = message || '';
   authError.hidden = !message;
 }
+function enterApp() {
+  state.hasEnteredApp = true;
+  document.body.classList.remove('auth-gate-active');
+  if (loginGate) loginGate.hidden = true;
+}
+function showLoginGate() {
+  state.hasEnteredApp = false;
+  document.body.classList.add('auth-gate-active');
+  if (loginGate) loginGate.hidden = false;
+  setLoginError('');
+  if (loginPassword) loginPassword.value = '';
+}
 function updateAccessUi() {
+  document.body.classList.toggle('auth-gate-active', !state.hasEnteredApp);
+  if (loginGate) loginGate.hidden = state.hasEnteredApp;
   document.body.classList.toggle('is-admin', canManagePrices());
   document.body.classList.toggle('is-standard-user', !canManagePrices());
   document.querySelectorAll('[data-view="suppliers"], [data-view="users"]').forEach(function (button) {
@@ -119,10 +135,10 @@ function updateAccessUi() {
   if (authState) {
     authState.textContent = canManagePrices()
       ? 'Modo administrador'
-      : (state.isAuthenticated ? 'Utilizador' : 'Modo normal');
+      : (state.isAuthenticated ? 'Cliente' : 'Convidado');
   }
   if (authForm) authForm.hidden = state.isAuthenticated;
-  if (logoutButton) logoutButton.hidden = !state.isAuthenticated;
+  if (logoutButton) logoutButton.hidden = !state.hasEnteredApp;
   const saveButton = document.querySelector('#saveSupplierPricesButton');
   if (saveButton) saveButton.disabled = !canManagePrices();
   if (!canManagePrices() && ((supplierView && !supplierView.hidden) || (usersView && !usersView.hidden))) {
@@ -136,6 +152,7 @@ async function loadSession() {
   const data = await response.json();
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
+  state.hasEnteredApp = state.isAuthenticated;
   state.userRole = data.role || (state.isAdmin ? 'admin' : 'anonymous');
   state.userName = data.name || '';
   state.usesSupabase = data.supabase === true;
@@ -161,6 +178,7 @@ async function loginAdmin() {
   }
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
+  enterApp();
   state.userRole = data.role || (state.isAdmin ? 'admin' : 'user');
   state.userName = data.name || username;
   state.usesSupabase = data.supabase === true;
@@ -183,6 +201,7 @@ async function logoutAdmin() {
   const data = response ? await response.json().catch(function () { return {}; }) : {};
   state.isAdmin = false;
   state.isAuthenticated = false;
+  state.hasEnteredApp = false;
   state.userRole = 'anonymous';
   state.userName = '';
   state.usesSupabase = data.supabase === true || state.usesSupabase;
@@ -192,7 +211,23 @@ async function logoutAdmin() {
   updateAccessUi();
   renderQuoteHistory();
   await showView('quote', state.pricingMode, false);
-  sourceStatus.textContent = 'Modo normal ativo';
+  showLoginGate();
+  sourceStatus.textContent = 'Sessao terminada';
+}
+
+async function continueAsGuest() {
+  state.isAdmin = false;
+  state.isAuthenticated = false;
+  state.userRole = 'guest';
+  state.userName = 'Convidado';
+  state.quoteHistory = [];
+  state.quoteHistoryOwnerId = '';
+  state.quoteHistoryOwnerLabel = '';
+  enterApp();
+  updateAccessUi();
+  renderQuoteHistory();
+  await showView('quote', state.pricingMode, false);
+  sourceStatus.textContent = 'Modo convidado ativo';
 }
 
 function renderUserRoleOptions(current) {
@@ -6150,6 +6185,11 @@ supplierSearchInput.addEventListener('input', scheduleSupplierSearch);
 if (loginButton) {
   loginButton.addEventListener('click', function () {
     loginAdmin().catch(function (error) { sourceStatus.textContent = error.message; });
+  });
+}
+if (guestButton) {
+  guestButton.addEventListener('click', function () {
+    continueAsGuest().catch(function (error) { sourceStatus.textContent = error.message; });
   });
 }
 if (loginUser) loginUser.addEventListener('input', function () { setLoginError(''); });
