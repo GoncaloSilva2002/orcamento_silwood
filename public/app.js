@@ -3498,7 +3498,18 @@ function duplicatePlateReferenceKeys() {
 
 function plateGroupKey(item) {
   const codeThicknessKey = plateCodeThicknessKey(item);
-  if (codeThicknessKey) return 'CODE|' + codeThicknessKey;
+  if (codeThicknessKey) {
+    const parts = codeThicknessKey.split('|');
+    const reference = parts[0].trim();
+    const thickness = parts.slice(1).join('|');
+    // Acabamentos como TL, SC, ST9, FH, etc. fazem parte da descrição
+    // comercial, não da referência usada no comparador. Assim, por exemplo,
+    // F755 e F755 TL de 10 mm ficam no mesmo grupo e mostram todos os
+    // fornecedores disponíveis.
+    const referenceMatch = reference.match(/^([A-Z]{1,4}\d{2,5}|\d{3,5})(?:\s+.+)?$/);
+    const comparisonReference = referenceMatch ? referenceMatch[1] : reference;
+    return 'CODE|' + comparisonReference + '|' + thickness;
+  }
   const referenceKey = plateReferenceIdentity(item?.reference);
   if (referenceKey && duplicatePlateReferenceKeys().has(referenceKey)) return 'REF|' + referenceKey;
   return basePlateGroupKey(item);
