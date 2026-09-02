@@ -106,7 +106,23 @@ function scheduleSupplierSearch(delay) {
   window.clearTimeout(supplierSearchTimer);
   supplierSearchTimer = window.setTimeout(applySupplierSearch, delay === undefined ? 120 : delay);
 }
-function canManagePrices() { return state.isAdmin === true; }
+function currentRole() {
+  if (state.isAdmin === true) return 'admin';
+  if (state.userRole === 'reseller' || state.userRole === 'revendedor') return 'reseller';
+  return 'guest';
+}
+function canManagePrices() { return currentRole() === 'admin'; }
+function canUseNormalQuote() { return currentRole() === 'admin' || currentRole() === 'guest'; }
+function canUseResellerQuote() { return currentRole() === 'admin' || currentRole() === 'reseller'; }
+function canUseQuoteMode(mode) {
+  return mode === 'reseller' ? canUseResellerQuote() : canUseNormalQuote();
+}
+function roleLabel() {
+  const role = currentRole();
+  if (role === 'admin') return 'Administrador';
+  if (role === 'reseller') return 'Revendedor';
+  return 'Convidado';
+}
 function setLoginError(message) {
   if (!authError) return;
   authError.textContent = message || '';
@@ -138,13 +154,17 @@ function updateAccessUi() {
   if (loginGate) loginGate.hidden = state.hasEnteredApp;
   document.body.classList.toggle('is-admin', canManagePrices());
   document.body.classList.toggle('is-standard-user', !canManagePrices());
-  document.querySelectorAll('[data-view="suppliers"], [data-view="users"]').forEach(function (button) {
-    button.hidden = !canManagePrices();
+  document.body.classList.toggle('is-reseller', currentRole() === 'reseller');
+  document.body.classList.toggle('is-guest', currentRole() === 'guest');
+  document.querySelectorAll('.side-nav button').forEach(function (button) {
+    const view = button.dataset.view;
+    const mode = button.dataset.mode || 'normal';
+    button.hidden =
+      ((view === 'suppliers' || view === 'users') && !canManagePrices()) ||
+      (view === 'quote' && !canUseQuoteMode(mode));
   });
   if (authState) {
-    authState.textContent = canManagePrices()
-      ? 'Modo administrador'
-      : (state.isAuthenticated ? 'Cliente' : 'Convidado');
+    authState.textContent = roleLabel();
   }
   if (authForm) authForm.hidden = state.isAuthenticated;
   if (logoutButton) logoutButton.hidden = !state.hasEnteredApp;
@@ -162,7 +182,7 @@ async function loadSession() {
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
   state.hasEnteredApp = state.isAuthenticated;
-  state.userRole = data.role || (state.isAdmin ? 'admin' : 'anonymous');
+  state.userRole = data.role || (state.isAdmin ? 'admin' : 'guest');
   state.userName = data.name || '';
   state.usesSupabase = data.supabase === true;
   updateAccessUi();
@@ -188,7 +208,7 @@ async function loginAdmin() {
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
   enterApp();
-  state.userRole = data.role || (state.isAdmin ? 'admin' : 'user');
+  state.userRole = data.role || (state.isAdmin ? 'admin' : 'guest');
   state.userName = data.name || username;
   state.usesSupabase = data.supabase === true;
   if (loginPassword) loginPassword.value = '';
@@ -240,8 +260,13 @@ async function continueAsGuest() {
 }
 
 function renderUserRoleOptions(current) {
-  return ['user', 'admin'].map(function (role) {
-    return '<option value="' + role + '"' + (role === current ? ' selected' : '') + '>' + (role === 'admin' ? 'Admin' : 'Utilizador') + '</option>';
+  const normalized = current === 'user' ? 'guest' : current;
+  return [
+    ['admin', 'Admin'],
+    ['reseller', 'Revendedor'],
+    ['guest', 'Convidado']
+  ].map(function (pair) {
+    return '<option value="' + pair[0] + '"' + (pair[0] === normalized ? ' selected' : '') + '>' + pair[1] + '</option>';
   }).join('');
 }
 
@@ -268,7 +293,7 @@ function renderUsersPanel(message) {
         '<label><span>Email</span><input id="newUserEmail" type="email" placeholder="nome@empresa.pt"' + disabled + '></label>' +
         '<label><span>Nome</span><input id="newUserName" type="text" placeholder="Nome"' + disabled + '></label>' +
         '<label><span>Palavra-passe</span><input id="newUserPassword" type="password" placeholder="Mín. 6 caracteres"' + disabled + '></label>' +
-        '<label><span>Permissão</span><select id="newUserRole"' + disabled + '>' + renderUserRoleOptions('user') + '</select></label>' +
+        '<label><span>Permissão</span><select id="newUserRole"' + disabled + '>' + renderUserRoleOptions('guest') + '</select></label>' +
         '<label class="user-active-field"><span>Ativo</span><input id="newUserActive" type="checkbox" checked' + disabled + '></label>' +
         '<button id="createUserButton" type="button"' + disabled + '>Criar utilizador</button>' +
       '</div>' +
@@ -302,7 +327,7 @@ async function createUserFromForm() {
     email: document.querySelector('#newUserEmail')?.value || '',
     name: document.querySelector('#newUserName')?.value || '',
     password: document.querySelector('#newUserPassword')?.value || '',
-    role: document.querySelector('#newUserRole')?.value || 'user',
+    role: document.querySelector('#newUserRole')?.value || 'guest',
     active: document.querySelector('#newUserActive')?.checked !== false
   };
   const response = await fetch('/api/users', {
@@ -6047,7 +6072,15 @@ async function showView(view, mode, recalculate) {
       ? 'Faz login como administrador para gerir utilizadores.'
       : 'Faz login como administrador para mudar preços.';
     view = 'quote';
-    mode = state.pricingMode;
+    mode = canUseQuoteMode(state.pricingMode) ? state.pricingMode : (canUseResellerQuote() ? 'reseller' : 'normal');
+    recalculate = false;
+  }
+  if (view === 'quote' && !canUseQuoteMode(mode === 'reseller' ? 'reseller' : 'normal')) {
+    const role = currentRole();
+    sourceStatus.textContent = role === 'reseller'
+      ? 'Revendedor só pode usar o orçamento revendedor.'
+      : 'Convidado só pode usar o orçamento normal.';
+    mode = role === 'reseller' ? 'reseller' : 'normal';
     recalculate = false;
   }
   document.querySelectorAll('.side-nav button').forEach(function (button) {

@@ -128,11 +128,18 @@ function requireAuth(req, res, next) {
   return next();
 }
 
+function allowedPricingModeForRequest(req, requestedMode) {
+  const role = normalizeUserRole(readAuthSession(req)?.role);
+  if (role === 'admin') return requestedMode === 'reseller' ? 'reseller' : 'normal';
+  if (role === 'reseller') return 'reseller';
+  return 'normal';
+}
+
 function publicSession(session) {
   return {
     authenticated: Boolean(session),
     admin: session?.role === 'admin',
-    role: session?.role || 'anonymous',
+    role: normalizeUserRole(session?.role || 'guest'),
     name: session?.name || '',
     supabase: useSupabaseAuth
   };
@@ -144,7 +151,7 @@ function createAuthSession(profile) {
     userId: profile.userId || '',
     email: profile.email || '',
     name: profile.name || profile.email || profile.username || '',
-    role: profile.role === 'admin' ? 'admin' : 'user',
+    role: normalizeUserRole(profile.role),
     expiresAt: Date.now() + sessionMaxAgeMs
   });
   return token;
@@ -200,7 +207,9 @@ function requireSupabaseUserAdmin() {
 }
 
 function normalizeUserRole(role) {
-  return role === 'admin' ? 'admin' : 'user';
+  if (role === 'admin') return 'admin';
+  if (role === 'reseller' || role === 'revendedor') return 'reseller';
+  return 'guest';
 }
 
 function normalizeUserProfileInput(body) {
@@ -1402,7 +1411,11 @@ app.get('/api/bootstrap', (req, res) => {
 
 app.post('/api/calculate', (req, res) => {
   refreshWorkbookData();
-  res.json(calculateQuote(req.body || quoteSeed));
+  const payload = req.body || quoteSeed;
+  res.json(calculateQuote({
+    ...payload,
+    pricingMode: allowedPricingModeForRequest(req, payload.pricingMode)
+  }));
 });
 
 app.get('/api/supplier-prices', (req, res) => {

@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Silwood | Or&ccedil;amento Cozinhas</title>
-  <link rel="stylesheet" href="/styles.css?v=97">
+  <link rel="stylesheet" href="/styles.css?v=98">
 </head>
 <body class="auth-gate-active">
   <section class="login-gate" id="loginGate" aria-label="Entrada na aplica&ccedil;&atilde;o">
@@ -14,7 +14,7 @@
         <span>SIMULADOR DE OR&Ccedil;AMENTO</span>
       </div>
       <h1>Entrar na aplica&ccedil;&atilde;o</h1>
-      <p>Usa uma conta para guardar hist&oacute;rico e, se fores admin, gerir pre&ccedil;os e utilizadores.</p>
+      <p>Usa uma conta de admin ou revendedor, ou entra como convidado para criar um or&ccedil;amento simples.</p>
       <div class="auth-form login-gate-form" id="authForm">
         <input id="loginUser" type="text" placeholder="Email / utilizador" autocomplete="username">
         <input id="loginPassword" type="password" placeholder="Palavra-passe" autocomplete="current-password">
@@ -22,7 +22,7 @@
         <p class="auth-error" id="authError" role="alert" aria-live="polite" hidden></p>
       </div>
       <button class="guest-button" id="guestButton" type="button">Entrar como convidado</button>
-      <p class="login-note">Convidado e cliente ficam no modo b&aacute;sico. Admin tem acesso completo.</p>
+      <p class="login-note">Admin tem acesso total. Revendedor usa s&oacute; or&ccedil;amento revendedor. Convidado usa s&oacute; or&ccedil;amento normal. Todos podem ver a visualiza&ccedil;&atilde;o.</p>
     </div>
   </section>
   <div class="app-shell">
@@ -112,7 +112,7 @@
     </main>
   </div>
   <section id="printSheet" class="print-sheet" aria-label="Or&ccedil;amento para impress&atilde;o"></section>
-  <script src="/app.js?v=307"></script>
+  <script src="/app.js?v=308"></script>
 </body>
 </html>
 

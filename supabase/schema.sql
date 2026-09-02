@@ -1,13 +1,19 @@
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   name text,
-  role text not null default 'user' check (role in ('admin', 'user')),
+  role text not null default 'guest' check (role in ('admin', 'reseller', 'guest')),
   active boolean not null default true,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
 
 alter table public.profiles enable row level security;
+
+alter table public.profiles drop constraint if exists profiles_role_check;
+alter table public.profiles alter column role set default 'guest';
+update public.profiles set role = 'guest' where role = 'user';
+alter table public.profiles
+  add constraint profiles_role_check check (role in ('admin', 'reseller', 'guest'));
 
 drop policy if exists "profiles_select_own" on public.profiles;
 create policy "profiles_select_own"
@@ -26,7 +32,7 @@ begin
   values (
     new.id,
     coalesce(new.raw_user_meta_data->>'name', split_part(new.email, '@', 1)),
-    'user',
+    'guest',
     true
   )
   on conflict (id) do nothing;
