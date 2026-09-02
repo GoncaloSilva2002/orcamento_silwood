@@ -112,6 +112,15 @@ function setLoginError(message) {
   authError.textContent = message || '';
   authError.hidden = !message;
 }
+async function readJson(response, fallback) {
+  const text = await response.text();
+  if (!text) return fallback === undefined ? {} : fallback;
+  try {
+    return JSON.parse(text);
+  } catch (error) {
+    return fallback === undefined ? {} : fallback;
+  }
+}
 function enterApp() {
   state.hasEnteredApp = true;
   document.body.classList.remove('auth-gate-active');
@@ -149,7 +158,7 @@ function updateAccessUi() {
 async function loadSession() {
   const response = await fetch('/api/session');
   if (!response.ok) return;
-  const data = await response.json();
+  const data = await readJson(response, {});
   state.isAdmin = data.admin === true;
   state.isAuthenticated = data.authenticated === true;
   state.hasEnteredApp = state.isAuthenticated;
@@ -168,7 +177,7 @@ async function loginAdmin() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ username, password })
   });
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) {
     const message = response.status === 401
       ? 'Utilizador ou palavra-passe incorretos.'
@@ -198,7 +207,7 @@ async function loginAdmin() {
 
 async function logoutAdmin() {
   const response = await fetch('/api/logout', { method: 'POST' }).catch(function () { return null; });
-  const data = response ? await response.json().catch(function () { return {}; }) : {};
+  const data = response ? await readJson(response, {}) : {};
   state.isAdmin = false;
   state.isAuthenticated = false;
   state.hasEnteredApp = false;
@@ -276,7 +285,7 @@ function renderUsersPanel(message) {
 
 async function loadUsers() {
   const response = await fetch('/api/users');
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) {
     state.users = [];
     state.usersEnabled = false;
@@ -301,7 +310,7 @@ async function createUserFromForm() {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível criar utilizador.');
   state.users = data.users || [];
   state.usersEnabled = data.enabled === true;
@@ -328,7 +337,7 @@ async function saveUserFromRow(userId) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(payload)
   });
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível guardar utilizador.');
   state.users = data.users || [];
   state.usersEnabled = data.enabled === true;
@@ -1004,7 +1013,7 @@ async function migrateLocalQuoteHistoryToRemote() {
       })
     })
   });
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível transferir o histórico local para a base de dados.');
   state.quoteHistory = data.entries || [];
   localStorage.removeItem(quoteHistoryKey);
@@ -1024,7 +1033,7 @@ async function loadQuoteHistoryList(userId, label) {
   if (!userId && await migrateLocalQuoteHistoryToRemote()) return;
   const query = userId ? '?userId=' + encodeURIComponent(userId) : '';
   const response = await fetch('/api/quote-history' + query);
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível carregar o histórico.');
   state.quoteHistory = data.entries || [];
   renderQuoteHistory();
@@ -1042,7 +1051,7 @@ async function saveQuoteHistoryRemote(snapshot) {
       snapshot
     })
   });
-  const data = await response.json().catch(function () { return {}; });
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível guardar no histórico.');
   state.quoteHistory = data.entries || [];
   renderQuoteHistory();
@@ -1099,7 +1108,7 @@ async function deleteHistoryEntry(id) {
   if (remoteHistoryEnabled()) {
     const query = state.quoteHistoryOwnerId ? '?userId=' + encodeURIComponent(state.quoteHistoryOwnerId) : '';
     const response = await fetch('/api/quote-history/' + encodeURIComponent(id) + query, { method: 'DELETE' });
-    const data = await response.json().catch(function () { return {}; });
+    const data = await readJson(response, {});
     if (!response.ok) throw new Error(data.error || 'Não foi possível apagar o histórico.');
     state.quoteHistory = data.entries || [];
     renderQuoteHistory();
@@ -1378,7 +1387,7 @@ async function calculate(options) {
     })
   });
   if (!response.ok) throw new Error('Não foi possível calcular o orçamento.');
-  state.quote = await response.json();
+  state.quote = await readJson(response, {});
   if (Array.isArray(state.quote.warnings) && state.quote.warnings.length) {
     sourceStatus.textContent = 'Atenção: ' + cleanDisplayText(state.quote.warnings[0]) + (state.quote.warnings.length > 1 ? ' +' + (state.quote.warnings.length - 1) : '');
   } else if (sourceStatus.textContent.startsWith('Atenção:')) {
@@ -5930,14 +5939,14 @@ async function saveSupplierPlateToExcel(item) {
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plate: item })
   });
-  const data = await response.json();
+  const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Nao foi possivel gravar a madeira no Excel.');
   state.pricingRules = data.rules;
   state.supplierPrices = data.plates;
   normalizeAllPlateNames();
   const bootstrapResponse = await fetch('/api/bootstrap');
   if (bootstrapResponse.ok) {
-    const fresh = await bootstrapResponse.json();
+    const fresh = await readJson(bootstrapResponse, {});
     state.catalog = fresh.catalog;
     state.lists = fresh.lists;
     state.typePresets = fresh.typePresets;
@@ -5990,7 +5999,7 @@ async function saveSupplierPrices() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(payload)
     });
-    const data = await response.json().catch(function () { return {}; });
+    const data = await readJson(response, {});
     if (!response.ok) throw new Error(data.error || 'Nao foi possivel guardar os precos.');
     state.pricingRules = data.rules;
     state.supplierPrices = data.plates;
@@ -6001,7 +6010,7 @@ async function saveSupplierPrices() {
     });
     const bootstrapResponse = await fetch('/api/bootstrap');
     if (bootstrapResponse.ok) {
-      const fresh = await bootstrapResponse.json();
+      const fresh = await readJson(bootstrapResponse, {});
       state.catalog = fresh.catalog;
       state.lists = fresh.lists;
       state.typePresets = fresh.typePresets;
@@ -6108,7 +6117,7 @@ async function boot() {
   await loadSession();
   const response = await fetch('/api/bootstrap');
   if (!response.ok) throw new Error('Não foi possível carregar os dados base.');
-  const data = await response.json();
+  const data = await readJson(response, {});
   state.lists = data.lists;
   state.catalog = data.catalog;
   baseDoorSystemsByName = new Map((state.catalog.doorSystems || []).map(function (item) {
@@ -6130,7 +6139,7 @@ async function boot() {
   sourceStatus.textContent = data.source.present ? 'Novo orçamento vazio' : 'Base Excel não encontrada; novo orçamento vazio';
   const supplierResponse = await fetch('/api/supplier-prices');
   if (!supplierResponse.ok) throw new Error('Não foi possível carregar os preços dos fornecedores.');
-  const supplierData = await supplierResponse.json();
+  const supplierData = await readJson(supplierResponse, {});
   state.pricingRules = supplierData.rules;
   state.supplierPrices = supplierData.plates;
   normalizeAllPlateNames();
@@ -6141,7 +6150,9 @@ async function boot() {
   normalizeCatalogSalePrices();
   ensureTransportExtras();
 
-  state.quote = await (await fetch('/api/calculate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client: state.client, modules: state.modules, extras: state.extras, pricingMode: state.pricingMode, catalog: calculationCatalogOverrides() }) })).json();
+  const quoteResponse = await fetch('/api/calculate', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ client: state.client, modules: state.modules, extras: state.extras, pricingMode: state.pricingMode, catalog: calculationCatalogOverrides() }) });
+  if (!quoteResponse.ok) throw new Error('Não foi possível calcular o orçamento inicial.');
+  state.quote = await readJson(quoteResponse, {});
   renderClient();
   renderKpis();
   renderModules();
