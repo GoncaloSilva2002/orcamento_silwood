@@ -1,0 +1,186 @@
+{
+  "workbookFile": "Silwood_Calculadora_Orcamentos_Cozinhas.xlsm",
+  "currency": "EUR",
+  "inputs": [
+    {
+      "id": "cliente",
+      "label": "Cliente",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "D4",
+      "default": "ELISABETE - MANUEL (V2)"
+    },
+    {
+      "id": "local",
+      "label": "Local",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "D5",
+      "default": "SÃO JOAO MADEIRA"
+    },
+    {
+      "id": "data",
+      "label": "Data",
+      "type": "date",
+      "sheet": "Orçamento_Final",
+      "cell": "D6",
+      "default": "2026-07-02"
+    },
+    {
+      "id": "rodape_tipo",
+      "label": "Rodapé",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "C37",
+      "default": "Rodapé PVC Alumínio Escovado (Altura 100mm)"
+    },
+    {
+      "id": "rodape_metros",
+      "label": "Metros de rodapé",
+      "type": "number",
+      "sheet": "Orçamento_Final",
+      "cell": "D37",
+      "default": 3,
+      "step": 0.01
+    },
+    {
+      "id": "acessorio_1",
+      "label": "Acessório cozinha",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "C42",
+      "default": "Porta-Garrafas Extraível Ring (M15)"
+    },
+    {
+      "id": "acessorio_1_qtd",
+      "label": "Quantidade acessório",
+      "type": "number",
+      "sheet": "Orçamento_Final",
+      "cell": "D42",
+      "default": 1,
+      "step": 1
+    },
+    {
+      "id": "led_perfil",
+      "label": "Perfil LED",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "C57",
+      "default": "Perfil LED Embutir Alumínio (Ares)"
+    },
+    {
+      "id": "led_perfil_qtd",
+      "label": "Qtd. perfil LED",
+      "type": "number",
+      "sheet": "Orçamento_Final",
+      "cell": "D57",
+      "default": 1,
+      "step": 1
+    },
+    {
+      "id": "tomada_1",
+      "label": "Tomada",
+      "type": "text",
+      "sheet": "Orçamento_Final",
+      "cell": "C67",
+      "default": ""
+    },
+    {
+      "id": "tomada_1_qtd",
+      "label": "Qtd. tomada",
+      "type": "number",
+      "sheet": "Orçamento_Final",
+      "cell": "D67",
+      "default": 0,
+      "step": 1
+    }
+  ],
+  "outputs": [
+    {
+      "id": "orcamento_base",
+      "label": "Orçamento cliente",
+      "sheet": "Orçamento_Final",
+      "cell": "D9",
+      "format": "currency"
+    },
+    {
+      "id": "extras",
+      "label": "Extras",
+      "sheet": "Orçamento_Final",
+      "cell": "F27:F68",
+      "format": "sum-currency"
+    },
+    {
+      "id": "total",
+      "label": "Orçamento cliente + extras",
+      "sheet": "Orçamento_Final",
+      "cell": "D71",
+      "format": "currency"
+    }
+  ],
+  "tables": [
+    {
+      "id": "linhas_orcamento",
+      "label": "Linhas de orçamento",
+      "sheet": "Orçamento_Final",
+      "range": "B13:J68"
+    },
+    {
+      "id": "cozinhas",
+      "label": "Cozinhas",
+      "sheet": "Orçamento_Cozinhas",
+      "range": "B1:Z191"
+    }
+  ],
+  "preview": {
+    "maxRowsPerSheet": 120
+  },
+  "allowMacros": false,
+  "views": [
+    {
+      "id": "orcamento_cozinhas",
+      "label": "Orçamento Cozinhas",
+      "sheet": "Orçamento_Cozinhas",
+      "range": "B1:Z191"
+    },
+    {
+      "id": "orcamento_final",
+      "label": "Orçamento Final",
+      "sheet": "Orçamento_Final",
+      "range": "A3:J71"
+    }
+  ],
+  "editableCells": [
+    "Orçamento_Final!D4",
+    "Orçamento_Final!D5",
+    "Orçamento_Final!D6",
+    "Orçamento_Final!C37",
+    "Orçamento_Final!D37",
+    "Orçamento_Final!C42",
+    "Orçamento_Final!D42",
+    "Orçamento_Final!C57",
+    "Orçamento_Final!D57",
+    "Orçamento_Final!C67",
+    "Orçamento_Final!D67",
+    "Orçamento_Cozinhas!C9",
+    "Orçamento_Cozinhas!E11",
+    "Orçamento_Cozinhas!E13",
+    "Orçamento_Cozinhas!E15",
+    "Orçamento_Cozinhas!E17",
+    "Orçamento_Cozinhas!E19",
+    "Orçamento_Cozinhas!E21",
+    "Orçamento_Cozinhas!E23",
+    "Orçamento_Cozinhas!D25",
+    "Orçamento_Cozinhas!E26",
+    "Orçamento_Cozinhas!F26",
+    "Orçamento_Cozinhas!D28",
+    "Orçamento_Cozinhas!D30",
+    "Orçamento_Cozinhas!D32",
+    "Orçamento_Cozinhas!D34",
+    "Orçamento_Cozinhas!D36",
+    "Orçamento_Cozinhas!D38",
+    "Orçamento_Cozinhas!E41",
+    "Orçamento_Cozinhas!E43",
+    "Orçamento_Cozinhas!E45"
+  ]
+}

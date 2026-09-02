@@ -1,0 +1,26 @@
+{
+  "name": "silwood-simulador-orcamentos",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Simulador Node.js de orçamentos de cozinhas baseado nos dados e fluxo do Excel Silwood.",
+  "main": "src/server.js",
+  "scripts": {
+    "start": "node src/server.js",
+    "dev": "node src/server.js",
+    "check": "node --check src/server.js && node --check public/app.js",
+    "build:exe": "pkg . --targets node18-win-x64 --output dist/silwood-orcamentos.exe"
+  },
+  "bin": "src/server.js",
+  "pkg": {
+    "scripts": [
+      "src/**/*.js"
+    ]
+  },
+  "dependencies": {
+    "express": "^4.19.2",
+    "xlsx": "^0.18.5"
+  },
+  "devDependencies": {
+    "pkg": "^5.8.1"
+  }
+}

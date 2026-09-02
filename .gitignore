@@ -1,0 +1,9 @@
+node_modules/
+dist/
+outputs/
+work/
+data/backups/
+data/~$*
+*.log
+*.rar
+.env

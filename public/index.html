@@ -1,0 +1,116 @@
+﻿<!doctype html>
+<html lang="pt">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Silwood | Or&ccedil;amento Cozinhas</title>
+  <link rel="stylesheet" href="/styles.css?v=90">
+</head>
+<body>
+  <div class="app-shell">
+    <aside class="side-menu">
+      <button class="sidebar-toggle in-sidebar" id="sidebarToggle" type="button" aria-label="Esconder menu" title="Esconder menu">&lsaquo;</button>
+      <div class="brand-block"><img class="side-logo" src="/assets/silwood-logo.png" alt="Silwood"></div>
+      <nav class="side-nav" aria-label="Navega&ccedil;&atilde;o principal">
+        <button class="active" type="button" data-view="quote" data-mode="normal"><span>01</span> Or&ccedil;amento</button>
+        <button type="button" data-view="quote" data-mode="reseller"><span>02</span> Or&ccedil;amento revendedor</button>
+        <button type="button" data-view="visual"><span>03</span> Visualiza&ccedil;&atilde;o</button>
+        <button type="button" data-view="suppliers"><span>04</span> Mudar pre&ccedil;o fornecedores</button>
+        <button type="button" data-view="users"><span>05</span> Utilizadores</button>
+      </nav>
+      <div class="side-actions" id="quoteActions">
+        <button id="resetButton" type="button">Novo orçamento</button>
+        <button id="printButton" type="button">Imprimir</button>
+        <button id="saveHistoryButton" type="button">Guardar no hist&oacute;rico</button>
+        <div class="history-control">
+          <span>Hist&oacute;rico</span>
+          <div class="quote-list" id="quoteHistoryList"></div>
+        </div>
+      </div>
+      <span class="status" id="sourceStatus">A carregar dados...</span>
+    </aside>
+    <main class="sheet-page">
+      <button class="sidebar-toggle floating-toggle" id="sidebarOpenButton" type="button" aria-label="Mostrar menu" title="Mostrar menu">&rsaquo;</button>
+      <header class="app-top">
+        <div><p>Silwood</p><h1 id="pageTitle">Or&ccedil;amento</h1></div>
+        <img class="top-logo" src="/assets/silwood-logo.png" alt="Silwood">
+        <div class="top-right">
+          <div class="document-tag">SIMULADOR DE OR&Ccedil;AMENTO</div>
+          <div class="auth-panel" id="authPanel">
+            <span id="authState">Modo normal</span>
+            <div class="auth-form" id="authForm">
+              <input id="loginUser" type="text" placeholder="Email / utilizador" autocomplete="username">
+              <input id="loginPassword" type="password" placeholder="Palavra-passe" autocomplete="current-password">
+              <button id="loginButton" type="button">Entrar</button>
+            </div>
+            <button id="logoutButton" type="button" hidden>Sair</button>
+          </div>
+        </div>
+      </header>
+      <section class="excel-sheet" id="quoteView" aria-label="Simulador de or&ccedil;amento">
+        <div class="sheet-title" id="quoteTitle">OR&Ccedil;AMENTO</div>
+        <div id="dadosCliente"></div>
+        <div id="clientBlock"></div>
+        <div id="kpiBlock" class="kpi-row"></div>
+        <section class="section-block" id="cozinhas">
+          <div class="section-title-row"><div class="section-title">M&Oacute;DULOS</div><button id="addModuleButton" type="button">+ Adicionar caixote</button></div>
+          <div id="modulesGrid"></div>
+        </section>
+        <section class="section-block" id="orcamentoFinal">
+          <div class="section-title-row"><div class="section-title">EXTRAS &amp; FINAL</div><button id="addExtraButton" type="button">+ Adicionar extra</button></div>
+          <div id="finalGrid"></div>
+        </section>
+      </section>
+      <section class="visual-sheet" id="visualView" aria-label="Visualiza&ccedil;&atilde;o dos m&oacute;dulos" hidden>
+        <div class="visual-heading">
+          <div>
+            <span>CONFIGURADOR VISUAL</span>
+            <h2>Visualiza&ccedil;&atilde;o dos m&oacute;dulos</h2>
+          </div>
+          <p>Altera medidas e estrutura aqui sem mexer diretamente na tabela.</p>
+        </div>
+        <div id="visualPreviewGrid" class="visual-preview-grid"></div>
+      </section>
+      <section class="supplier-sheet" id="supplierView" aria-label="Pre&ccedil;os dos fornecedores" hidden>
+        <div class="supplier-heading">
+          <div>
+            <span>BASE DE PRE&Ccedil;OS</span>
+            <h2>Mudar pre&ccedil;o fornecedores</h2>
+          </div>
+          <div class="supplier-tools">
+            <label class="supplier-search">
+              <span>Pesquisar madeira</span>
+              <input id="supplierSearchInput" type="search" placeholder="Escrever nome, referência ou fornecedor...">
+            </label>
+            <button id="saveSupplierPricesButton" type="button">Guardar pre&ccedil;os</button>
+          </div>
+        </div>
+        <div class="supplier-table-wrap" id="supplierPricesGrid"></div>
+      </section>
+      <section class="users-sheet" id="usersView" aria-label="Gest&atilde;o de utilizadores" hidden>
+        <div class="supplier-heading">
+          <div>
+            <span>ACESSOS</span>
+            <h2>Utilizadores</h2>
+          </div>
+        </div>
+        <div id="usersGrid"></div>
+      </section>
+    </main>
+  </div>
+  <section id="printSheet" class="print-sheet" aria-label="Or&ccedil;amento para impress&atilde;o"></section>
+  <script src="/app.js?v=296"></script>
+</body>
+</html>
+
+
+
+
+
+
+
+
+
+
+
+
