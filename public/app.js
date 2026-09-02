@@ -134,6 +134,14 @@ async function loginAdmin() {
   if (loginPassword) loginPassword.value = '';
   updateAccessUi();
   await loadQuoteHistoryList();
+  // O login altera permissões e conteúdo disponível. Reativa a vista atual
+  // imediatamente, tal como aconteceria ao clicar numa aba, para que a app
+  // fique pronta sem exigir uma navegação manual.
+  if (visualView && !visualView.hidden) {
+    await showView('visual', state.pricingMode, false);
+  } else {
+    await showView('quote', state.pricingMode, true);
+  }
   sourceStatus.textContent = canManagePrices() ? 'Modo administrador ativo' : 'Sessao iniciada';
 }
 
