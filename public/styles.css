@@ -4266,18 +4266,103 @@ body.is-admin .app-top .auth-panel {
 
 /* Final drawer cascade overrides. */
 @media screen and (max-width: 720px) {
+  body.sidebar-collapsed .side-menu,
+  .side-menu {
+    height: 100vh !important;
+    height: 100dvh !important;
+    max-height: 100vh;
+    max-height: 100dvh;
+    overflow-x: hidden !important;
+    overflow-y: auto !important;
+    overscroll-behavior: contain;
+    touch-action: pan-y;
+    -webkit-overflow-scrolling: touch;
+    pointer-events: none;
+  }
+
+  body.mobile-menu-open .side-menu {
+    pointer-events: auto;
+  }
+
+  .mobile-menu-backdrop {
+    pointer-events: none;
+    touch-action: manipulation;
+  }
+
+  body.mobile-menu-open .mobile-menu-backdrop {
+    pointer-events: auto;
+  }
+
   .side-nav {
     grid-template-columns: 1fr;
     gap: 7px;
     margin-top: 18px;
+    flex: 0 0 auto;
   }
 
   .side-nav :is(a, button),
   .side-nav :is(a, button):last-child:nth-child(odd) {
     grid-column: auto;
+    flex: none;
+    touch-action: manipulation;
   }
 
   .side-actions {
     margin-top: 18px;
+    flex: 0 0 auto;
+    overflow: visible;
+  }
+
+  .mobile-session-actions {
+    flex: 0 0 auto;
+    margin-top: 18px;
+  }
+
+  .mobile-session-actions button,
+  .mobile-menu-button,
+  .side-menu button {
+    touch-action: manipulation;
+  }
+
+  .sheet-page,
+  .excel-sheet,
+  .section-block,
+  #modulesGrid,
+  #finalGrid,
+  .modules-table,
+  .final-table,
+  .modules-table tbody,
+  .final-table tbody,
+  .modules-table tr,
+  .final-table tr,
+  .modules-table td,
+  .final-table td {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .excel-sheet {
+    overflow-x: visible;
+  }
+
+  .modules-table input,
+  .modules-table select,
+  .final-table input,
+  .final-table select,
+  .final-table button,
+  .searchable-wood {
+    min-width: 0;
+    max-width: 100%;
+    box-sizing: border-box;
+  }
+
+  .final-table tbody td {
+    grid-template-columns: minmax(76px, 32%) minmax(0, 1fr);
+  }
+
+  .final-table tbody td::before,
+  .modules-table td::before {
+    overflow-wrap: anywhere;
   }
 }
