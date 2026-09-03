@@ -64,6 +64,197 @@ button:hover { background: #e2f0d9; }
   .excel-table th, .excel-table td { padding: 3px; }
 }
 
+/* Phone drawer navigation. */
+.mobile-menu-button,
+.mobile-menu-backdrop,
+.mobile-session-actions {
+  display: none;
+}
+
+@media screen and (max-width: 720px) {
+  body.mobile-menu-open {
+    overflow: hidden;
+  }
+
+  .mobile-menu-button {
+    display: grid;
+    align-content: center;
+    gap: 4px;
+    width: 42px;
+    height: 42px;
+    padding: 10px;
+    border: 1px solid #dedee4;
+    border-radius: 10px;
+    background: #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .08);
+  }
+
+  .mobile-menu-button span {
+    display: block;
+    width: 100%;
+    height: 2px;
+    border-radius: 2px;
+    background: #27272a;
+  }
+
+  .app-top {
+    grid-template-columns: 42px minmax(0, 1fr) auto !important;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 45;
+    padding: max(6px, env(safe-area-inset-top)) 8px 6px !important;
+    background: rgba(255, 255, 255, .96);
+    border-bottom: 1px solid #ececf1;
+    backdrop-filter: blur(12px);
+  }
+
+  .app-top .top-logo,
+  .app-top .top-right {
+    display: none;
+  }
+
+  body.sidebar-collapsed .side-menu,
+  .side-menu {
+    display: flex !important;
+    position: fixed !important;
+    inset: 0 auto 0 0;
+    z-index: 80;
+    width: min(86vw, 340px) !important;
+    height: 100dvh !important;
+    padding: max(18px, env(safe-area-inset-top)) 14px max(14px, env(safe-area-inset-bottom)) !important;
+    overflow-y: auto !important;
+    border: 0 !important;
+    border-right: 1px solid #dedee4 !important;
+    background: #fff !important;
+    box-shadow: 14px 0 36px rgba(15, 23, 42, .2) !important;
+    transform: translateX(-105%);
+    visibility: hidden;
+    transition: transform .22s ease, visibility 0s linear .22s;
+  }
+
+  body.mobile-menu-open .side-menu {
+    transform: translateX(0);
+    visibility: visible;
+    transition-delay: 0s;
+  }
+
+  .side-menu .brand-block {
+    display: block !important;
+    padding-right: 46px;
+  }
+
+  .side-menu .in-sidebar {
+    display: grid !important;
+    width: 38px;
+    height: 38px;
+    top: max(14px, env(safe-area-inset-top));
+    right: 12px;
+    font-size: 0;
+  }
+
+  .side-menu .in-sidebar::before {
+    content: "\00d7";
+    font-size: 25px;
+  }
+
+  .side-nav {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 18px;
+    overflow: visible;
+  }
+
+  .side-nav :is(a, button),
+  .side-nav :is(a, button):last-child:nth-child(odd) {
+    grid-column: auto;
+    width: 100%;
+    min-height: 48px;
+    padding: 10px 12px;
+    border-radius: 9px;
+    color: #343541;
+    text-align: left;
+  }
+
+  .side-actions {
+    flex: none;
+    grid-template-columns: 1fr 1fr;
+    max-height: none;
+    overflow: visible;
+    margin-top: 18px;
+  }
+
+  .side-actions::before,
+  .side-actions .history-control {
+    grid-column: 1 / -1;
+  }
+
+  .mobile-session-actions {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 12px;
+    margin-top: auto;
+    padding-top: 16px;
+    border-top: 1px solid #ececf1;
+    color: #5f6068;
+    font-size: 12px;
+    font-weight: 700;
+  }
+
+  .mobile-session-actions button {
+    min-width: 88px;
+    min-height: 42px;
+    border: 1px solid #d7d7dc;
+    border-radius: 9px;
+    background: #f4f4f5;
+    color: #202123;
+    font: inherit;
+  }
+
+  .app-top #logoutButton {
+    display: none !important;
+  }
+
+  .mobile-menu-backdrop {
+    display: block;
+    position: fixed;
+    inset: 0;
+    z-index: 70;
+    padding: 0;
+    border: 0;
+    background: rgba(15, 23, 42, .46);
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity .22s ease, visibility 0s linear .22s;
+  }
+
+  body.mobile-menu-open .mobile-menu-backdrop {
+    opacity: 1;
+    visibility: visible;
+    transition-delay: 0s;
+  }
+}
+
+/* Drawer overrides must remain after the legacy phone layout above. */
+@media screen and (max-width: 720px) {
+  .side-nav {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 18px;
+  }
+
+  .side-nav :is(a, button),
+  .side-nav :is(a, button):last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .side-actions {
+    margin-top: 18px;
+  }
+}
+
 /* Responsive application shell: keep every spreadsheet column inside the viewport. */
 html { scroll-behavior: smooth; }
 body { overflow-x: hidden; }
@@ -4070,5 +4261,23 @@ body.is-admin .app-top .auth-panel {
   .app-shell > .app-top .auth-panel > span {
     display: block;
     margin-bottom: 2px;
+  }
+}
+
+/* Final drawer cascade overrides. */
+@media screen and (max-width: 720px) {
+  .side-nav {
+    grid-template-columns: 1fr;
+    gap: 7px;
+    margin-top: 18px;
+  }
+
+  .side-nav :is(a, button),
+  .side-nav :is(a, button):last-child:nth-child(odd) {
+    grid-column: auto;
+  }
+
+  .side-actions {
+    margin-top: 18px;
   }
 }

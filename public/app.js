@@ -68,6 +68,10 @@ const loginPassword = document.querySelector('#loginPassword');
 const loginButton = document.querySelector('#loginButton');
 const authError = document.querySelector('#authError');
 const logoutButton = document.querySelector('#logoutButton');
+const mobileLogoutButton = document.querySelector('#mobileLogoutButton');
+const mobileAuthState = document.querySelector('#mobileAuthState');
+const mobileMenuButton = document.querySelector('#mobileMenuButton');
+const mobileMenuBackdrop = document.querySelector('#mobileMenuBackdrop');
 const loginGate = document.querySelector('#loginGate');
 const guestButton = document.querySelector('#guestButton');
 const appShell = document.querySelector('.app-shell');
@@ -85,11 +89,20 @@ function syncMobileHeaderPosition() {
   } else if (appTop.parentElement !== sheetPage || appTop.nextElementSibling !== quoteView) {
     sheetPage.insertBefore(appTop, quoteView);
   }
+  if (!mobileLayoutQuery.matches) closeMobileMenu();
 }
 if (typeof mobileLayoutQuery.addEventListener === 'function') {
   mobileLayoutQuery.addEventListener('change', syncMobileHeaderPosition);
 }
 syncMobileHeaderPosition();
+
+function setMobileMenuOpen(open) {
+  const isOpen = mobileLayoutQuery.matches && open;
+  document.body.classList.toggle('mobile-menu-open', isOpen);
+  if (mobileMenuButton) mobileMenuButton.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  if (sideMenu) sideMenu.setAttribute('aria-hidden', mobileLayoutQuery.matches && !isOpen ? 'true' : 'false');
+}
+function closeMobileMenu() { setMobileMenuOpen(false); }
 
 function money(value) { return euro.format(Number(value) || 0); }
 function scheduleVisualPreview(delay) {
@@ -166,8 +179,10 @@ function updateAccessUi() {
   if (authState) {
     authState.textContent = roleLabel();
   }
+  if (mobileAuthState) mobileAuthState.textContent = roleLabel();
   if (authForm) authForm.hidden = state.isAuthenticated;
   if (logoutButton) logoutButton.hidden = !state.hasEnteredApp;
+  if (mobileLogoutButton) mobileLogoutButton.hidden = !state.hasEnteredApp;
   const saveButton = document.querySelector('#saveSupplierPricesButton');
   if (saveButton) saveButton.disabled = !canManagePrices();
   if (!canManagePrices() && ((supplierView && !supplierView.hidden) || (usersView && !usersView.hidden))) {
@@ -6205,6 +6220,7 @@ async function boot() {
 
 document.querySelectorAll('.side-nav button').forEach(function (button) {
   button.addEventListener('click', function () {
+    closeMobileMenu();
     showView(button.dataset.view, button.dataset.mode || state.pricingMode).catch(function (error) {
       sourceStatus.textContent = error.message;
     });
@@ -6218,11 +6234,23 @@ function setSidebarCollapsed(collapsed) {
 setSidebarCollapsed(localStorage.getItem('silwoodSidebarCollapsed') === '1');
 
 document.querySelector('#sidebarToggle').addEventListener('click', function () {
-  setSidebarCollapsed(true);
+  if (mobileLayoutQuery.matches) closeMobileMenu();
+  else setSidebarCollapsed(true);
 });
 
 document.querySelector('#sidebarOpenButton').addEventListener('click', function () {
   setSidebarCollapsed(false);
+});
+
+if (mobileMenuButton) mobileMenuButton.addEventListener('click', function () {
+  setMobileMenuOpen(!document.body.classList.contains('mobile-menu-open'));
+});
+if (mobileMenuBackdrop) mobileMenuBackdrop.addEventListener('click', closeMobileMenu);
+document.addEventListener('keydown', function (event) {
+  if (event.key === 'Escape' && document.body.classList.contains('mobile-menu-open')) {
+    closeMobileMenu();
+    if (mobileMenuButton) mobileMenuButton.focus();
+  }
 });
 
 supplierSearchInput.addEventListener('input', scheduleSupplierSearch);
@@ -6248,6 +6276,12 @@ if (loginPassword) {
 }
 if (logoutButton) {
   logoutButton.addEventListener('click', function () {
+    logoutAdmin().catch(function (error) { sourceStatus.textContent = error.message; });
+  });
+}
+if (mobileLogoutButton) {
+  mobileLogoutButton.addEventListener('click', function () {
+    closeMobileMenu();
     logoutAdmin().catch(function (error) { sourceStatus.textContent = error.message; });
   });
 }
