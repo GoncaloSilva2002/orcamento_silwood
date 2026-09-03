@@ -116,6 +116,7 @@ button:hover { background: #e2f0d9; }
 
   body.sidebar-collapsed .side-menu,
   .side-menu {
+    z-index: 1001 !important;
     display: flex !important;
     position: fixed !important;
     inset: 0 auto 0 0;
@@ -4285,6 +4286,8 @@ body.is-admin .app-top .auth-panel {
   }
 
   .mobile-menu-backdrop {
+    inset: 0 0 0 min(86vw, 340px);
+    z-index: 1000;
     pointer-events: none;
     touch-action: manipulation;
   }
