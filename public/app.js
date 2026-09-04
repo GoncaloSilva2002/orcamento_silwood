@@ -1292,15 +1292,15 @@ function sideTopDescription(module) {
     : [];
   if (distribution.length) {
     const parts = distribution.map(function (row) {
-      return num(row.quantity) + 'x Esq. ' + short(cleanDisplayText(row.sideLeftEdge || 'Não')) +
-        ' / Dir. ' + short(cleanDisplayText(row.sideRightEdge || 'Não'));
+      return num(row.quantity) + ' módulo(s): esquerda ' + short(cleanDisplayText(row.sideLeftEdge || 'Não')) +
+        ' / direita ' + short(cleanDisplayText(row.sideRightEdge || 'Não'));
     });
-    return 'LATERAIS: ' + parts.join(' + ');
+    return 'Laterais: ' + parts.join(' + ');
   }
   const left = cleanDisplayText(module.sideLeftEdge || 'Não');
   const right = cleanDisplayText(module.sideRightEdge || 'Não');
   if (left === 'Não' && right === 'Não') return '';
-  return 'LATERAIS: Esq. ' + short(left) + ' / Dir. ' + short(right);
+  return 'Laterais: esquerda ' + short(left) + ' / direita ' + short(right);
 }
 
 function hasSideDistribution(module) {
@@ -1376,20 +1376,24 @@ function buildDescription(m) {
   const paintInterior = cleanDisplayText(m.paintInterior || 'Nenhuma');
   const paintExterior = cleanDisplayText(m.paintDoor || 'Nenhuma');
   const family = moduleDisplayFamily(m);
+  function isApplicable(value) {
+    const text = comparableText(value);
+    return Boolean(text) && text !== 'NENHUMA' && text !== 'NAO' && text !== 'NAO APLICAVEL';
+  }
   if (isPiecePlate(m)) {
-    return family + ' / ' + m.width + '(L)x' + m.height + '(A) / INT: ' + interior + ' / PINTURA: ' + paintExterior;
+    const plateParts = [family + ' / Largura: ' + m.width + ' cm / Altura: ' + m.height + ' cm'];
+    if (isApplicable(interior)) plateParts.push('Material interior: ' + interior);
+    if (isApplicable(paintExterior)) plateParts.push('Pintura: ' + paintExterior);
+    return plateParts.join(' / ');
   }
-  const parts = [
-    family + ' / ' + m.width + '(L)x' + m.height + '(A)x' + m.depth + '(P) / ' + m.doors + ' Portas',
-    (num(m.shelves) || 0) + ' Prateleiras',
-    (num(m.divider) || 0) + ' Divisórias',
-    'INT: ' + interior,
-    'PINTURA INT: ' + paintInterior
-  ];
-  if (exterior) {
-    parts.push('EXT: ' + exterior);
-    parts.push('PINTURA EXT: ' + paintExterior);
-  }
+  const parts = [family + ' / Largura: ' + m.width + ' cm / Altura: ' + m.height + ' cm / Profundidade: ' + m.depth + ' cm'];
+  if (num(m.doors) > 0) parts.push(num(m.doors) + ' Portas');
+  if (num(m.shelves) > 0) parts.push(num(m.shelves) + ' Prateleiras');
+  if (num(m.divider) > 0) parts.push(num(m.divider) + ' Divisórias');
+  if (isApplicable(interior)) parts.push('Material interior: ' + interior);
+  if (isApplicable(paintInterior)) parts.push('Pintura interior: ' + paintInterior);
+  if (isApplicable(exterior)) parts.push('Material exterior: ' + exterior);
+  if (isApplicable(exterior) && isApplicable(paintExterior)) parts.push('Pintura exterior: ' + paintExterior);
   const sides = sideTopDescription(m);
   if (sides) parts.push(sides);
   return parts.join(' / ');
