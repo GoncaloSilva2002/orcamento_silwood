@@ -2356,8 +2356,10 @@ function renderPrint() {
       '</div>' +
     '</header>' +
     printSectionHtml('M&Oacute;DULOS', moduleRows, totals.moduleTotal || 0, 'print-modules-section', 'Sem módulos no orçamento') +
-    printSectionHtml('EXTRAS', extraRows, totals.extrasTotal || 0, 'print-extras-section', 'Sem extras no orçamento') +
-    '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
+    '<div class="' + (extraRows.length ? 'print-extras-page' : 'print-extras-empty-page') + '">' +
+      printSectionHtml('EXTRAS', extraRows, totals.extrasTotal || 0, 'print-extras-section', 'Sem extras no orçamento') +
+      '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
+    '</div>' +
     renderPrintVisuals();
 }
 
