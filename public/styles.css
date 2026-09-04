@@ -2209,6 +2209,16 @@ select,
   font-size: 13px;
 }
 
+.supplier-save-actions {
+  display: flex;
+  justify-content: flex-end;
+  padding-top: 4px;
+}
+
+.supplier-save-actions button {
+  min-width: 180px;
+}
+
 .supplier-empty td {
   padding: 18px;
   text-align: center;
@@ -3806,9 +3816,14 @@ body.is-admin .app-top .auth-panel {
   .section-title-row button,
   .supplier-heading button,
   .supplier-tools button,
+  .supplier-save-actions button,
   .supplier-search input {
     width: 100%;
     min-height: 44px;
+  }
+
+  .supplier-save-actions {
+    display: grid;
   }
 
   #modulesGrid,

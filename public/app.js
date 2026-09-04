@@ -56,6 +56,7 @@ const usersView = document.querySelector('#usersView');
 const supplierPricesGrid = document.querySelector('#supplierPricesGrid');
 const usersGrid = document.querySelector('#usersGrid');
 const supplierSearchInput = document.querySelector('#supplierSearchInput');
+const supplierSearchButton = document.querySelector('#supplierSearchButton');
 const quoteActions = document.querySelector('#quoteActions');
 const quoteHistoryList = document.querySelector('#quoteHistoryList');
 const saveHistoryButton = document.querySelector('#saveHistoryButton');
@@ -6269,7 +6270,19 @@ document.addEventListener('keydown', function (event) {
   }
 });
 
-supplierSearchInput.addEventListener('input', scheduleSupplierSearch);
+if (supplierSearchButton) supplierSearchButton.addEventListener('click', function () {
+  scheduleSupplierSearch(0);
+});
+if (supplierSearchInput) {
+  supplierSearchInput.addEventListener('keydown', function (event) {
+    if (event.key !== 'Enter') return;
+    event.preventDefault();
+    scheduleSupplierSearch(0);
+  });
+  supplierSearchInput.addEventListener('search', function () {
+    if (!supplierSearchInput.value) scheduleSupplierSearch(0);
+  });
+}
 if (loginButton) {
   loginButton.addEventListener('click', function () {
     loginAdmin().catch(function (error) { sourceStatus.textContent = error.message; });

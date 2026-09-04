@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Silwood | Or&ccedil;amento Cozinhas</title>
-  <link rel="stylesheet" href="/styles.css?v=99">
+  <link rel="stylesheet" href="/styles.css?v=100">
 </head>
 <body class="auth-gate-active">
   <section class="login-gate" id="loginGate" aria-label="Entrada na aplica&ccedil;&atilde;o">
@@ -100,13 +100,16 @@
           </div>
           <div class="supplier-tools">
             <label class="supplier-search">
-              <span>Pesquisar madeira</span>
+              <span>Pesquisar no comparador</span>
               <input id="supplierSearchInput" type="search" placeholder="Escrever nome, referência ou fornecedor...">
             </label>
-            <button id="saveSupplierPricesButton" type="button">Guardar pre&ccedil;os</button>
+            <button id="supplierSearchButton" type="button">Pesquisar</button>
           </div>
         </div>
         <div class="supplier-table-wrap" id="supplierPricesGrid"></div>
+        <div class="supplier-save-actions">
+          <button id="saveSupplierPricesButton" type="button">Guardar pre&ccedil;os</button>
+        </div>
       </section>
       <section class="users-sheet" id="usersView" aria-label="Gest&atilde;o de utilizadores" hidden>
         <div class="supplier-heading">
@@ -120,7 +123,7 @@
     </main>
   </div>
   <section id="printSheet" class="print-sheet" aria-label="Or&ccedil;amento para impress&atilde;o"></section>
-  <script src="/app.js?v=309"></script>
+  <script src="/app.js?v=310"></script>
 </body>
 </html>
 
