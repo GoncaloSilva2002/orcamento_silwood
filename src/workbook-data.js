@@ -249,7 +249,10 @@ function addComparisonPlateOptions() {
     if (!family || !thickness) return;
     const groupName = family + ' - ' + thickness;
     const comparisonKey = basePlateFamilyKey(groupName, groupName) || normalizeComparisonKey(groupName);
-    for (let col = 2; col <= 10; col += 2) {
+    // Cada fornecedor ocupa duas colunas (designacao + preco). O ficheiro foi
+    // crescendo e ja nao termina necessariamente na coluna K, por isso lemos
+    // todos os pares anunciados na linha de fornecedores.
+    for (let col = 2; col < supplierRow.length; col += 2) {
       const supplier = typeof supplierRow[col] === 'string' ? supplierRow[col].trim() : '';
       const reference = typeof row[col] === 'string' ? row[col].trim() : '';
       const supplierPrice = Number(row[col + 1]);

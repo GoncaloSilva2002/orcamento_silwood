@@ -4081,7 +4081,13 @@ function bestSupplierPriceGroups() {
 }
 
 function bestSupplierPriceSummary() {
-  return Array.from(bestSupplierPriceGroups().values());
+  return Array.from(bestSupplierPriceGroups().values()).sort(function (a, b) {
+    return String(plateGroupLabel(a) || a.name || '').localeCompare(
+      String(plateGroupLabel(b) || b.name || ''),
+      'pt',
+      { sensitivity: 'base', numeric: true }
+    );
+  });
 }
 
 function bestSupplierPrices() {
@@ -5293,7 +5299,10 @@ function plateComparatorGroupsHtml() {
   });
   return Array.from(grouped.entries()).map(function ([key, entries]) {
     entries = dedupePlateMarketEntries(entries);
-    entries.sort(function (a, b) { return (Number(a.item.supplierPrice) || Infinity) - (Number(b.item.supplierPrice) || Infinity); });
+    entries.sort(function (a, b) {
+      return String(a.item.supplier || '').localeCompare(String(b.item.supplier || ''), 'pt', { sensitivity: 'base' }) ||
+        String(a.item.reference || '').localeCompare(String(b.item.reference || ''), 'pt', { sensitivity: 'base', numeric: true });
+    });
     const best = bestByKey.get(key) || entries[0].item;
     const search = entries.map(function (entry) {
       return [entry.item.name, entry.item.supplier, entry.item.reference].join(' ');
@@ -5301,13 +5310,20 @@ function plateComparatorGroupsHtml() {
     const rows = entries.map(function (entry) {
       return plateComparatorRow(entry.item, entry.index, bestKeys);
     }).join('');
-    return '<div class="plate-compare-group" data-supplier-search="' + esc(search) + '">' +
+    return {
+      label: plateGroupLabel(best) || best.name || '',
+      html: '<div class="plate-compare-group" data-supplier-search="' + esc(search) + '">' +
       '<div class="plate-compare-header">' +
         '<div><strong>' + esc(plateGroupLabel(best) || best.name) + '</strong><small>' + entries.length + ' ' + (entries.length === 1 ? 'opcao' : 'opcoes') + ' de mercado</small></div>' +
         '<span>Melhor: ' + esc(best.supplier || '') + ' - ' + money(best.supplierPrice) + '</span>' +
       '</div>' +
       '<div class="plate-options-list">' + rows + '</div>' +
-    '</div>';
+      '</div>'
+    };
+  }).sort(function (a, b) {
+    return String(a.label).localeCompare(String(b.label), 'pt', { sensitivity: 'base', numeric: true });
+  }).map(function (group) {
+    return group.html;
   }).join('') + '<div class="supplier-empty" hidden>Sem resultados para esta pesquisa.</div>';
 }
 
