@@ -608,7 +608,7 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
   body { background: #fff; color: #000; font-family: Arial, sans-serif; }
   .app-shell { display: none !important; }
-  .print-sheet { display: block; width: 100%; font-size: 9px; }
+  .print-sheet { display: block; width: 100%; font-size: 11px; line-height: 1.35; }
 
   .print-header {
     display: grid;
@@ -640,7 +640,8 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
     color: #fff;
     font-weight: 800;
     text-align: center;
-    padding: 3px;
+    padding: 5px;
+    font-size: 11px;
     margin-bottom: 1px;
   }
 
@@ -651,17 +652,18 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
   }
 
   .print-client strong {
-    padding: 3px 4px;
+    padding: 4px;
     text-align: right;
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .print-client span {
     display: block;
-    min-height: 16px;
+    min-height: 20px;
     border-bottom: 1px solid #000;
     background: #eee;
-    padding: 3px 5px;
+    padding: 4px 6px;
+    font-size: 11px;
   }
 
   .print-client .print-client-total {
@@ -682,11 +684,30 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
     table-layout: fixed;
   }
 
+  .print-budget-section {
+    margin-top: 7mm;
+  }
+
+  .print-budget-section > h2 {
+    margin: 0;
+    border: 1px solid #000;
+    background: #252525;
+    color: #fff;
+    padding: 6px 8px;
+    font-size: 14px;
+    letter-spacing: .08em;
+    text-align: left;
+  }
+
+  .print-extras-section > h2 {
+    background: #4f6b3a;
+  }
+
   .print-lines th {
     border-bottom: 1px solid #000;
-    padding: 4px 2px;
+    padding: 6px 4px;
     text-align: left;
-    font-size: 8px;
+    font-size: 10px;
   }
 
   .print-lines th:nth-child(2),
@@ -703,9 +724,10 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
   .print-lines td {
     border-bottom: 1px solid #777;
-    padding: 7px 2px;
+    padding: 8px 4px;
     vertical-align: top;
     font-weight: 700;
+    font-size: 11px;
   }
 
   .print-lines .print-empty td {
@@ -717,11 +739,38 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
   .print-lines tfoot td {
     border: 0;
-    padding-top: 8px;
+    padding: 7px 4px 0;
     font-weight: 800;
   }
 
   .print-lines tfoot td:first-child { text-align: right; }
+
+  .print-grand-total {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 110px;
+    margin-top: 8mm;
+    margin-left: auto;
+    width: 310px;
+    border: 2px solid #000;
+    break-inside: avoid;
+    page-break-inside: avoid;
+    font-size: 13px;
+    font-weight: 800;
+  }
+
+  .print-grand-total span,
+  .print-grand-total strong {
+    padding: 7px 8px;
+  }
+
+  .print-grand-total span {
+    background: #252525;
+    color: #fff;
+  }
+
+  .print-grand-total strong {
+    text-align: right;
+  }
 
   .print-visual-page {
     page-break-before: always;

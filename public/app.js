@@ -2317,10 +2317,21 @@ function renderPrint() {
       totalClient: calculated.totalClient ?? (extra.quantity * extra.unitClient)
     };
   });
-  const rows = moduleRows.concat(extraRows);
-  const rowsHtml = rows.length ? rows.map(function (row) {
+  function printRowsHtml(rows, emptyMessage) {
+    return rows.length ? rows.map(function (row) {
     return '<tr><td>' + esc(row.description) + '</td><td class="print-quantity">' + esc(row.quantity) + ' x ' + money(row.unitClient) + '</td><td class="print-money">' + money(row.totalClient) + '</td></tr>';
-  }).join('') : '<tr class="print-empty"><td colspan="3">Sem artigos no or&ccedil;amento</td></tr>';
+    }).join('') : '<tr class="print-empty"><td colspan="3">' + esc(emptyMessage) + '</td></tr>';
+  }
+
+  function printSectionHtml(title, rows, subtotal, className, emptyMessage) {
+    return '<section class="print-budget-section ' + className + '">' +
+      '<h2>' + title + '</h2>' +
+      '<table class="print-lines"><thead><tr><th>DESCRI&Ccedil;&Atilde;O</th><th>QTD X P. UNIT&Aacute;RIO</th><th>TOTAL</th></tr></thead>' +
+        '<tbody>' + printRowsHtml(rows, emptyMessage) + '</tbody>' +
+        '<tfoot><tr><td colspan="2">SUBTOTAL:</td><td>' + money(subtotal) + '</td></tr></tfoot>' +
+      '</table>' +
+    '</section>';
+  }
 
   printSheet.innerHTML =
     '<header class="print-header">' +
@@ -2333,9 +2344,9 @@ function renderPrint() {
         '<div class="print-client-total"><strong>OR&Ccedil;AMENTO ' + (state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE') + ':</strong><span>' + money(totals.finalTotal) + '</span></div>' +
       '</div>' +
     '</header>' +
-    '<table class="print-lines"><thead><tr><th>DESCRI&Ccedil;&Atilde;O</th><th>QTD X P. UNIT&Aacute;RIO</th><th>TOTAL</th></tr></thead><tbody>' + rowsHtml + '</tbody>' +
-      '<tfoot><tr><td colspan="2">TOTAL GERAL C/ EXTRAS:</td><td>' + money(totals.finalTotal) + '</td></tr></tfoot>' +
-    '</table>' +
+    printSectionHtml('M&Oacute;DULOS', moduleRows, totals.moduleTotal || 0, 'print-modules-section', 'Sem módulos no orçamento') +
+    printSectionHtml('EXTRAS', extraRows, totals.extrasTotal || 0, 'print-extras-section', 'Sem extras no orçamento') +
+    '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
     renderPrintVisuals();
 }
 
