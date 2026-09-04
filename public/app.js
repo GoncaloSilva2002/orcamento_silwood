@@ -2765,6 +2765,7 @@ function searchTokens(value) {
 
 function applySupplierSearch() {
   const queryTokens = searchTokens(supplierSearchInput?.value || '');
+  let totalVisible = 0;
   function matchesSearch(value) {
     if (!queryTokens.length) return true;
     const haystack = searchTokens(value).join(' ');
@@ -2777,7 +2778,10 @@ function applySupplierSearch() {
       groups.forEach(function (group) {
         const match = matchesSearch(group.dataset.supplierSearch || '');
         group.hidden = !match;
-        if (match) visibleGroups += 1;
+        if (match) {
+          visibleGroups += 1;
+          totalVisible += 1;
+        }
       });
       const emptyGroup = section.querySelector('.supplier-empty');
       if (emptyGroup) emptyGroup.hidden = visibleGroups > 0;
@@ -2787,11 +2791,24 @@ function applySupplierSearch() {
     section.querySelectorAll('tbody tr[data-supplier-search]').forEach(function (row) {
       const match = matchesSearch(row.dataset.supplierSearch || '');
       row.hidden = !match;
-      if (match) visible += 1;
+      if (match) {
+        visible += 1;
+        totalVisible += 1;
+      }
     });
     const empty = section.querySelector('.supplier-empty');
     if (empty) empty.hidden = visible > 0;
   });
+  return totalVisible;
+}
+
+function searchSupplierPricesWithFeedback() {
+  window.clearTimeout(supplierSearchTimer);
+  const query = String(supplierSearchInput?.value || '').trim();
+  const matches = applySupplierSearch();
+  if (query && state.supplierTab === 'Madeiras / Placas' && matches === 0) {
+    window.alert('Não foi encontrada nenhuma madeira ou placa com o nome "' + query + '".');
+  }
 }
 
 function clearSupplierSearch() {
@@ -6295,13 +6312,13 @@ document.addEventListener('keydown', function (event) {
 });
 
 if (supplierSearchButton) supplierSearchButton.addEventListener('click', function () {
-  scheduleSupplierSearch(0);
+  searchSupplierPricesWithFeedback();
 });
 if (supplierSearchInput) {
   supplierSearchInput.addEventListener('keydown', function (event) {
     if (event.key !== 'Enter') return;
     event.preventDefault();
-    scheduleSupplierSearch(0);
+    searchSupplierPricesWithFeedback();
   });
   supplierSearchInput.addEventListener('search', function () {
     if (!supplierSearchInput.value) scheduleSupplierSearch(0);
