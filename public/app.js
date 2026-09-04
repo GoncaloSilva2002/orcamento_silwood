@@ -1283,23 +1283,27 @@ function applyLegacySideTopFields(module) {
 function sideTopDescription(module) {
   applyLegacySideTopFields(module);
   function short(value) {
-    if (value === 'Inteira') return 'inteira';
-    if (/sarrafo/i.test(value)) return 'sarrafo 15cm';
+    const text = comparableText(value);
+    if (text === 'INTEIRA') return 'inteira';
+    if (text.includes('SARRAFO')) return 'sarrafo 15cm';
     return 'não';
   }
   const distribution = Array.isArray(module.sideDistribution)
     ? module.sideDistribution.filter(function (row) { return num(row.quantity) > 0; })
     : [];
   if (distribution.length) {
-    const parts = distribution.map(function (row) {
+    const parts = distribution.filter(function (row) {
+      return comparableText(row.sideLeftEdge || 'Não') !== 'NAO' ||
+        comparableText(row.sideRightEdge || 'Não') !== 'NAO';
+    }).map(function (row) {
       return num(row.quantity) + ' módulo(s): esquerda ' + short(cleanDisplayText(row.sideLeftEdge || 'Não')) +
         ' / direita ' + short(cleanDisplayText(row.sideRightEdge || 'Não'));
     });
-    return 'Laterais: ' + parts.join(' + ');
+    return parts.length ? 'Laterais: ' + parts.join(' + ') : '';
   }
   const left = cleanDisplayText(module.sideLeftEdge || 'Não');
   const right = cleanDisplayText(module.sideRightEdge || 'Não');
-  if (left === 'Não' && right === 'Não') return '';
+  if (comparableText(left) === 'NAO' && comparableText(right) === 'NAO') return '';
   return 'Laterais: esquerda ' + short(left) + ' / direita ' + short(right);
 }
 
