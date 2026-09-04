@@ -50,8 +50,17 @@ button:hover { background: #e2f0d9; }
 .section-title-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
 .section-title-row .section-title { display: grid; place-items: center; }
 .section-title-row button { border-left: 0; background: #e2f0d9; }
-.module-section-actions { display: flex; }
+.module-section-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: flex-end;
+}
 .module-section-actions button + button { border-left: 1px solid #7f7f7f; }
+
+#cozinhas .section-title-row {
+  grid-template-columns: minmax(0, 1fr) auto;
+  overflow: visible;
+}
 .remove-button { width: 24px; min-height: 22px; padding: 0; font-size: 17px; line-height: 1; color: #9c0006; background: #ffc7ce; border-color: #c65911; }
 .final-table col:nth-child(9) { width: 54px; }
 @media print {
@@ -3887,6 +3896,15 @@ body.is-admin .app-top .auth-panel {
     grid-template-columns: 1fr;
     gap: 8px;
     align-items: stretch;
+  }
+
+  #cozinhas .section-title-row {
+    grid-template-columns: 1fr;
+  }
+
+  .module-section-actions {
+    display: grid;
+    grid-template-columns: 1fr;
   }
 
   .section-title-row button,
