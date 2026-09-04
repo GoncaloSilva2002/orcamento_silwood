@@ -1391,9 +1391,12 @@ function buildDescription(m) {
     return plateParts.join(' / ');
   }
   const parts = [family + ' / Largura: ' + m.width + ' cm / Altura: ' + m.height + ' cm / Profundidade: ' + m.depth + ' cm'];
-  if (num(m.doors) > 0) parts.push(num(m.doors) + ' Portas');
-  if (num(m.shelves) > 0) parts.push(num(m.shelves) + ' Prateleiras');
-  if (num(m.divider) > 0) parts.push(num(m.divider) + ' Divisórias');
+  const doors = num(m.doors);
+  const shelves = num(m.shelves);
+  const dividers = num(m.divider);
+  if (doors > 0) parts.push(doors + '\u00a0' + (doors === 1 ? 'porta' : 'portas'));
+  if (shelves > 0) parts.push(shelves + '\u00a0' + (shelves === 1 ? 'prateleira' : 'prateleiras'));
+  if (dividers > 0) parts.push(dividers + '\u00a0' + (dividers === 1 ? 'divisória' : 'divisórias'));
   if (isApplicable(interior)) parts.push('Material interior: ' + interior);
   if (isApplicable(paintInterior)) parts.push('Pintura interior: ' + paintInterior);
   if (isApplicable(exterior)) parts.push('Material exterior: ' + exterior);
