@@ -2086,6 +2086,9 @@ function manageFurnitureGroups() {
     state.modules.forEach(function (module) {
       if (module.furnitureGroupId === group.id) module.furnitureGroupId = '';
     });
+    state.extras.forEach(function (extra) {
+      if (extra.furnitureGroupId === group.id) extra.furnitureGroupId = '';
+    });
     groups.splice(index, 1);
   } else {
     group.name = name.trim();
@@ -2272,12 +2275,12 @@ function splitModuleQuantity(index) {
 
 function renderFinal() {
   const sellLabel = state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE';
-  const headings = ['GRUPO','DESCRIÃ‡ÃƒO','QTD','P. UNIT ' + sellLabel,'TOTAL ' + sellLabel,'CUSTO UNIT.','TOTAL CUSTO','DESCRIÃ‡ÃƒO FINAL','AÃ‡ÃƒO'];
+  const headings = ['MÓVEL','GRUPO','DESCRIÃ‡ÃƒO','QTD','P. UNIT ' + sellLabel,'TOTAL ' + sellLabel,'CUSTO UNIT.','TOTAL CUSTO','DESCRIÃ‡ÃƒO FINAL','AÃ‡ÃƒO'];
   const extraGroups = Array.from(new Set((state.lists.extraGroups || []).concat([wardrobeDrawerGroup]).map(normalizeExtraGroupName).filter(Boolean)));
   prepareWardrobeDrawerExtras();
-  finalGrid.innerHTML = '<table class="excel-table final-table"><colgroup>' + '<col>'.repeat(9) + '</colgroup><thead><tr>' + headings.map(function (h, index) { return '<th' + (index === 5 || index === 6 ? ' class="cost-cell"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
+  finalGrid.innerHTML = '<table class="excel-table final-table"><colgroup>' + '<col>'.repeat(10) + '</colgroup><thead><tr>' + headings.map(function (h, index) { return '<th' + (index === 6 || index === 7 ? ' class="cost-cell"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' +
     state.modules.map(function (m, i) {
-      return '<tr><td>' + esc(moduleFinalGroup(m)) + '</td><td>' + esc(moduleFinalTitle(m)) + '</td><td class="text-center">' + esc(m.quantity) + '</td><td class="text-right">' + money(m.unitClient) + '</td><td class="total-cell text-right">' + money(state.quote?.modules?.[i]?.totalClient || 0) + '</td><td class="cost-cell text-right">' + money(m.unitCost) + '</td><td class="cost-cell text-right">' + money(state.quote?.modules?.[i]?.totalCost || 0) + '</td><td class="description">' + esc(buildDescription(m)) + '</td><td></td></tr>';
+      return '<tr><td>' + esc(moduleFinalGroup(m)) + '</td><td>Módulos</td><td>' + esc(moduleFinalTitle(m)) + '</td><td class="text-center">' + esc(m.quantity) + '</td><td class="text-right">' + money(m.unitClient) + '</td><td class="total-cell text-right">' + money(state.quote?.modules?.[i]?.totalClient || 0) + '</td><td class="cost-cell text-right">' + money(m.unitCost) + '</td><td class="cost-cell text-right">' + money(state.quote?.modules?.[i]?.totalCost || 0) + '</td><td class="description">' + esc(buildDescription(m)) + '</td><td></td></tr>';
     }).join('') +
     state.extras.map(function (e, i) {
       const manualPriced = isManualPricedExtra(e);
@@ -2314,9 +2317,9 @@ function renderFinal() {
       const costCell = manualPriced
         ? input('number', unitCost, 'min="0" step="0.01" data-extra="' + i + '" data-field="unitCost"')
         : money(unitCost);
-      return '<tr><td class="input-cell"><select data-extra="' + i + '" data-field="group">' + optionListWithBlank(extraGroups, e.group) + '</select></td><td class="input-cell extra-item-cell">' + itemCell + '</td><td class="input-cell">' + input('number', e.quantity, 'min="0" step="0.01" data-extra="' + i + '" data-field="quantity"') + '</td><td class="input-cell text-right">' + clientCell + '</td><td class="total-cell text-right">' + money(state.quote?.extras?.[i]?.totalClient || 0) + '</td><td class="input-cell cost-cell text-right">' + costCell + '</td><td class="cost-cell text-right">' + money(state.quote?.extras?.[i]?.totalCost || 0) + '</td><td class="description">' + esc(description) + '</td><td class="text-center"><button class="remove-button" data-remove-extra="' + i + '" type="button" title="Remover linha">&times;</button></td></tr>';
+      return '<tr><td class="input-cell"><select data-extra="' + i + '" data-field="furnitureGroupId">' + furnitureGroupOptions(e.furnitureGroupId || '') + '</select></td><td class="input-cell"><select data-extra="' + i + '" data-field="group">' + optionListWithBlank(extraGroups, e.group) + '</select></td><td class="input-cell extra-item-cell">' + itemCell + '</td><td class="input-cell">' + input('number', e.quantity, 'min="0" step="0.01" data-extra="' + i + '" data-field="quantity"') + '</td><td class="input-cell text-right">' + clientCell + '</td><td class="total-cell text-right">' + money(state.quote?.extras?.[i]?.totalClient || 0) + '</td><td class="input-cell cost-cell text-right">' + costCell + '</td><td class="cost-cell text-right">' + money(state.quote?.extras?.[i]?.totalCost || 0) + '</td><td class="description">' + esc(description) + '</td><td class="text-center"><button class="remove-button" data-remove-extra="' + i + '" type="button" title="Remover linha">&times;</button></td></tr>';
     }).join('') +
-    '<tr><td colspan="4" class="total-cell text-right">' + esc('ORÃ‡AMENTO CLIENTE + EXTRAS') + '</td><td class="total-cell text-right">' + money(state.quote?.totals?.finalTotal || 0) + '</td><td class="cost-cell text-right">CUSTO</td><td class="cost-cell text-right">' + money(state.quote?.totals?.costTotal || 0) + '</td><td class="total-cell text-right margin-cell">MARGEM: ' + money(state.quote?.totals?.margin || 0) + '</td><td></td></tr>' +
+    '<tr><td colspan="5" class="total-cell text-right">' + esc('ORÃ‡AMENTO CLIENTE + EXTRAS') + '</td><td class="total-cell text-right">' + money(state.quote?.totals?.finalTotal || 0) + '</td><td class="cost-cell text-right">CUSTO</td><td class="cost-cell text-right">' + money(state.quote?.totals?.costTotal || 0) + '</td><td class="total-cell text-right margin-cell">MARGEM: ' + money(state.quote?.totals?.margin || 0) + '</td><td></td></tr>' +
     '</tbody></table>';
 
   enhanceExtraItemSearchFields();
@@ -2378,6 +2381,7 @@ function renderPrint() {
       : '';
     const rodExtra = isWardrobeRodExtra(extra);
     return {
+      furnitureGroupId: extra.furnitureGroupId || '',
       description: isWardrobeDrawerExtra(extra) ? drawerDescription : (extra.group ? extra.group + (extra.item ? ' - ' + extra.item : '') + (isSkirtingExtra(extra) && isLacqueredExtra(extra) ? ' / Lacado' : '') + (rodExtra ? wardrobeRodDescription(extra) : '') : ''),
       quantity: extra.quantity,
       unitClient: calculated.unitClient ?? extra.unitClient,
@@ -2401,17 +2405,26 @@ function renderPrint() {
   }
 
   const knownFurnitureIds = new Set((state.furnitureGroups || []).map(function (group) { return group.id; }));
-  const furnitureSections = (state.furnitureGroups || []).map(function (group) {
-    const rows = moduleRows.filter(function (row) { return row.furnitureGroupId === group.id; });
-    if (!rows.length) return '';
-    const subtotal = rows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
-    return printSectionHtml('MÓVEL — ' + esc(group.name), rows, subtotal, 'print-modules-section print-furniture-section', '');
+  const furnitureBlocksHtml = (state.furnitureGroups || []).map(function (group) {
+    const groupModules = moduleRows.filter(function (row) { return row.furnitureGroupId === group.id; });
+    const groupExtras = extraRows.filter(function (row) { return row.furnitureGroupId === group.id; });
+    if (!groupModules.length && !groupExtras.length) return '';
+    const moduleSubtotal = groupModules.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
+    const extraSubtotal = groupExtras.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
+    return '<div class="print-furniture-block">' +
+      (groupModules.length ? printSectionHtml('MÓVEL — ' + esc(group.name), groupModules, moduleSubtotal, 'print-modules-section print-furniture-section', '') : '') +
+      (groupExtras.length ? printSectionHtml('EXTRAS DO MÓVEL — ' + esc(group.name), groupExtras, extraSubtotal, 'print-extras-section print-furniture-extras-section', '') : '') +
+    '</div>';
   }).join('');
   const ungroupedRows = moduleRows.filter(function (row) { return !row.furnitureGroupId || !knownFurnitureIds.has(row.furnitureGroupId); });
   const ungroupedSubtotal = ungroupedRows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
-  const moduleSectionsHtml = furnitureSections + (ungroupedRows.length || !moduleRows.length
-    ? printSectionHtml(furnitureSections ? 'MÓDULOS SEM MÓVEL' : 'MÓDULOS', ungroupedRows, ungroupedSubtotal, 'print-modules-section', 'Sem módulos no orçamento')
-    : '');
+  const ungroupedExtraRows = extraRows.filter(function (row) { return !row.furnitureGroupId || !knownFurnitureIds.has(row.furnitureGroupId); });
+  const ungroupedExtraSubtotal = ungroupedExtraRows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
+  const ungroupedHtml = (ungroupedRows.length || (!moduleRows.length && !furnitureBlocksHtml)
+    ? printSectionHtml('MÓDULOS SEM MÓVEL', ungroupedRows, ungroupedSubtotal, 'print-modules-section', 'Sem módulos no orçamento')
+    : '') + (ungroupedExtraRows.length
+      ? printSectionHtml('EXTRAS SEM MÓVEL', ungroupedExtraRows, ungroupedExtraSubtotal, 'print-extras-section', '')
+      : '');
 
   printSheet.innerHTML =
     '<header class="print-header">' +
@@ -2424,11 +2437,9 @@ function renderPrint() {
         '<div class="print-client-total"><strong>OR&Ccedil;AMENTO ' + (state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE') + ':</strong><span>' + money(totals.finalTotal) + '</span></div>' +
       '</div>' +
     '</header>' +
-    moduleSectionsHtml +
-    '<div class="' + (extraRows.length ? 'print-extras-page' : 'print-extras-empty-page') + '">' +
-      printSectionHtml('EXTRAS', extraRows, totals.extrasTotal || 0, 'print-extras-section', 'Sem extras no orçamento') +
-      '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
-    '</div>' +
+    furnitureBlocksHtml +
+    ungroupedHtml +
+    '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
     renderPrintVisuals();
 }
 
@@ -2469,7 +2480,7 @@ function addModule() {
 }
 
 function addExtra() {
-  state.extras.push({ id: 'extra_' + Date.now(), group: '', item: '', quantity: 0, unitClient: 0, unitCost: 0, lacquered: false });
+  state.extras.push({ id: 'extra_' + Date.now(), furnitureGroupId: '', group: '', item: '', quantity: 0, unitClient: 0, unitCost: 0, lacquered: false });
   calculate();
 }
 

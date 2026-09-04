@@ -55,6 +55,7 @@ button:hover { background: #e2f0d9; }
   flex-wrap: wrap;
   justify-content: flex-end;
 }
+
 .module-section-actions button + button { border-left: 1px solid #7f7f7f; }
 
 #cozinhas .section-title-row {
@@ -731,6 +732,15 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
   .print-extras-page .print-budget-section {
     margin-top: 0;
+  }
+
+  .print-furniture-block {
+    page-break-inside: avoid;
+    break-inside: avoid;
+  }
+
+  .print-furniture-block .print-extras-section {
+    margin-top: 4mm;
   }
 
   .print-lines th {
@@ -4477,4 +4487,57 @@ body.is-admin .app-top .auth-panel {
   .modules-table td::before {
     overflow-wrap: anywhere;
   }
+}
+
+/* Keep responsive module labels aligned with the furniture column. */
+.module-main-row td:nth-child(2)::before { content: "Movel"; }
+.module-main-row td:nth-child(3)::before { content: "Tipo"; }
+.module-main-row td:nth-child(4)::before { content: "Qtd"; }
+.module-main-row td:nth-child(5)::before { content: "Larg."; }
+.module-main-row td:nth-child(6)::before { content: "Alt."; }
+.module-main-row td:nth-child(7)::before { content: "Prof."; }
+.module-main-row td:nth-child(8)::before { content: "Portas"; }
+.module-main-row td:nth-child(9)::before { content: "Prat."; }
+.module-main-row td:nth-child(10)::before { content: "Interior"; }
+.module-main-row td:nth-child(11)::before { content: "Exterior"; }
+.module-main-row td:nth-child(12)::before { content: "Pintura"; }
+.module-main-row td:nth-child(13)::before { content: "Sistema"; }
+.module-main-row td:nth-child(14)::before { content: "Dobradica"; }
+.module-main-row td:nth-child(15)::before { content: "P. unit"; }
+.module-main-row td:nth-child(16)::before { content: "Total"; }
+.module-main-row td:nth-child(17)::before { content: "Custo unit."; }
+.module-main-row td:nth-child(18)::before { content: "Total custo"; }
+
+body.is-standard-user .modules-table col:nth-child(16) { display: table-column !important; }
+body.is-standard-user .modules-table col:nth-child(17),
+body.is-standard-user .modules-table col:nth-child(18) { display: none !important; }
+
+@media screen and (max-width: 720px) {
+  .modules-table .module-main-row > td:nth-child(9) { grid-column: auto; }
+  .modules-table .module-main-row > td:nth-child(14) { grid-column: 1 / -1; }
+}
+
+/* Final table includes furniture before the original extra columns. */
+.final-table col:nth-child(1) { width: 9%; }
+.final-table col:nth-child(2) { width: 10%; }
+.final-table col:nth-child(3) { width: 20%; }
+.final-table col:nth-child(4) { width: 5%; }
+.final-table col:nth-child(n+5):nth-child(-n+8) { width: 9%; }
+.final-table col:nth-child(9) { width: 24%; }
+.final-table col:nth-child(10) { width: 5%; }
+body.is-standard-user .final-table col:nth-child(6) { display: table-column !important; }
+body.is-standard-user .final-table col:nth-child(7),
+body.is-standard-user .final-table col:nth-child(8) { display: none !important; }
+
+@media screen and (max-width: 720px) {
+  .final-table tbody td:nth-child(1)::before { content: "Movel"; }
+  .final-table tbody td:nth-child(2)::before { content: "Grupo"; }
+  .final-table tbody td:nth-child(3)::before { content: "Descricao"; }
+  .final-table tbody td:nth-child(4)::before { content: "Quantidade"; }
+  .final-table tbody td:nth-child(5)::before { content: "Preco unit."; }
+  .final-table tbody td:nth-child(6)::before { content: "Total"; }
+  .final-table tbody td:nth-child(7)::before { content: "Custo unit."; }
+  .final-table tbody td:nth-child(8)::before { content: "Custo total"; }
+  .final-table tbody td:nth-child(9)::before { content: "Descricao final"; }
+  .final-table tbody td:nth-child(10)::before { content: "Acao"; }
 }
