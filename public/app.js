@@ -13,7 +13,7 @@ const transportExtraGroup = 'Transporte e embalamento';
 const transportExtraItems = ['CARGA + TRANSPORTE + EMBALAMENTO', 'EMBALAMENTO + CARGA'];
 const wardrobeDrawerGroup = 'Gavetas Roupeiro';
 const wardrobeDrawerItem = 'Gaveta Roupeiro';
-const state = { client: null, modules: [], extras: [], lists: {}, catalog: { extras: [] }, typePresets: {}, quote: null, original: null, pricingMode: 'normal', supplierPrices: [], pricingRules: null, supplierTab: 'Madeiras / Placas', platePriceView: 'summary', isAdmin: false, isAuthenticated: false, hasEnteredApp: false, userRole: 'anonymous', userName: '', usesSupabase: false, users: [], usersEnabled: false, quoteHistory: [], quoteHistoryOwnerId: '', quoteHistoryOwnerLabel: '' };
+const state = { client: null, modules: [], extras: [], furnitureGroups: [], lists: {}, catalog: { extras: [] }, typePresets: {}, quote: null, original: null, pricingMode: 'normal', supplierPrices: [], pricingRules: null, supplierTab: 'Madeiras / Placas', platePriceView: 'summary', isAdmin: false, isAuthenticated: false, hasEnteredApp: false, userRole: 'anonymous', userName: '', usesSupabase: false, users: [], usersEnabled: false, quoteHistory: [], quoteHistoryOwnerId: '', quoteHistoryOwnerLabel: '' };
 let plateDuplicateReferenceKeysCache = null;
 let plateKnownNameCache = null;
 let knownPlateCodesCache = null;
@@ -949,7 +949,7 @@ function enhanceExtraItemSearchFields() {
 }
 
 function quoteSnapshotFromState() {
-  return { client: state.client, modules: state.modules, extras: state.extras, pricingMode: state.pricingMode };
+  return { client: state.client, modules: state.modules, extras: state.extras, furnitureGroups: state.furnitureGroups, pricingMode: state.pricingMode };
 }
 
 function writeQuoteSnapshot(snapshot) {
@@ -990,7 +990,7 @@ function flushPendingQuotePersist() {
 
 function persistCurrentQuoteOnly() {
   if (!state.client) return;
-  localStorage.setItem(storageKey, JSON.stringify({ client: state.client, modules: state.modules, extras: state.extras, pricingMode: state.pricingMode }));
+  localStorage.setItem(storageKey, JSON.stringify(quoteSnapshotFromState()));
 }
 
 function quoteHistoryStore() {
@@ -1105,6 +1105,7 @@ function currentQuoteSnapshot() {
     client: clone(state.client),
     modules: clone(state.modules),
     extras: clone(state.extras),
+    furnitureGroups: clone(state.furnitureGroups),
     pricingMode: state.pricingMode,
     quote: clone(state.quote)
   };
@@ -1168,6 +1169,7 @@ async function applyQuoteSnapshot(entry, labelPrefix) {
   state.client = clone(entry.snapshot.client);
   state.modules = (entry.snapshot.modules || []).map(hydrateModule);
   state.extras = (entry.snapshot.extras || []).map(hydrateExtra);
+  state.furnitureGroups = clone(entry.snapshot.furnitureGroups || []);
   state.pricingMode = entry.snapshot.pricingMode === 'reseller' ? 'reseller' : 'normal';
   state.quote = entry.snapshot.quote ? clone(entry.snapshot.quote) : null;
   persistCurrentQuoteOnly();
@@ -1416,7 +1418,8 @@ function moduleDisplayFamily(module) {
 }
 
 function moduleFinalGroup(module) {
-  return 'GERAL';
+  const group = (state.furnitureGroups || []).find(function (item) { return item.id === module?.furnitureGroupId; });
+  return group ? group.name : 'GERAL';
 }
 
 function moduleFinalTitle(module) {
@@ -1511,7 +1514,7 @@ function updateModule(index, field, value) {
   if (field === 'type') {
     const previous = state.modules[index];
     const preset = clone(state.typePresets[value]);
-    state.modules[index] = hydrateModule({ ...preset, id: previous.id, quantity: previous.quantity, type: value });
+    state.modules[index] = hydrateModule({ ...preset, id: previous.id, quantity: previous.quantity, furnitureGroupId: previous.furnitureGroupId || '', type: value });
     delete state.modules[index].blank;
     state.modules[index].pricingBase = clone(preset.pricingBase);
     state.modules[index].description = buildDescription(state.modules[index]);
@@ -2042,16 +2045,68 @@ function renderPrintVisuals() {
   }).join('');
 }
 
+function furnitureGroupOptions(selectedId) {
+  return '<option value="">Sem móvel</option>' + (state.furnitureGroups || []).map(function (group) {
+    return '<option value="' + attrEsc(group.id) + '"' + (group.id === selectedId ? ' selected' : '') + '>' + esc(group.name) + '</option>';
+  }).join('');
+}
+
+function createFurnitureGroup() {
+  const suggested = 'Móvel ' + ((state.furnitureGroups || []).length + 1);
+  const name = window.prompt('Nome do móvel:', suggested);
+  if (!name || !name.trim()) return;
+  const cleanName = name.trim();
+  if ((state.furnitureGroups || []).some(function (group) { return comparableText(group.name) === comparableText(cleanName); })) {
+    window.alert('Já existe um móvel com esse nome.');
+    return;
+  }
+  state.furnitureGroups.push({ id: 'furniture_' + Date.now(), name: cleanName });
+  persistQuoteSoon();
+  renderModules();
+  renderPrint();
+  sourceStatus.textContent = 'Móvel criado: ' + cleanName;
+}
+
+function manageFurnitureGroups() {
+  const groups = state.furnitureGroups || [];
+  if (!groups.length) {
+    window.alert('Ainda não existem móveis. Usa “Criar móvel” primeiro.');
+    return;
+  }
+  const choice = window.prompt('Escolhe o número do móvel que queres alterar:\n' + groups.map(function (group, index) {
+    return (index + 1) + ' — ' + group.name;
+  }).join('\n'));
+  const index = Number(choice) - 1;
+  if (!Number.isInteger(index) || !groups[index]) return;
+  const group = groups[index];
+  const name = window.prompt('Novo nome do móvel. Deixa vazio para eliminar:', group.name);
+  if (name === null) return;
+  if (!name.trim()) {
+    if (!window.confirm('Eliminar o móvel “' + group.name + '”? Os módulos ficam em “Sem móvel”.')) return;
+    state.modules.forEach(function (module) {
+      if (module.furnitureGroupId === group.id) module.furnitureGroupId = '';
+    });
+    groups.splice(index, 1);
+  } else {
+    group.name = name.trim();
+  }
+  persistQuoteSoon();
+  renderModules();
+  renderFinal();
+  renderPrint();
+}
+
 function renderModules() {
   const sellLabel = state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE';
-  const headings = ['AÃ‡ÃƒO','TIPO','QTD','LARG.','ALT.','PROF.','PORTAS','PRAT.','INTERIOR','EXTERIOR','PINTURA','SISTEMA','DOBRADIÃ‡A','P. UNIT ' + sellLabel,'TOTAL ' + sellLabel,'CUSTO UNIT.','TOTAL CUSTO'];
-  modulesGrid.innerHTML = datalistOptions('moduleInteriorOptions', state.lists.interiores) + datalistOptions('moduleExteriorOptions', state.lists.exteriores) + '<table class="excel-table modules-table"><colgroup>' + '<col>'.repeat(17) + '</colgroup><thead><tr>' + headings.map(function (h, index) { return '<th' + (index >= 15 ? ' class="cost-cell"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + state.modules.map(function (m, i) {
+  const headings = ['AÃ‡ÃƒO','MÓVEL','TIPO','QTD','LARG.','ALT.','PROF.','PORTAS','PRAT.','INTERIOR','EXTERIOR','PINTURA','SISTEMA','DOBRADIÃ‡A','P. UNIT ' + sellLabel,'TOTAL ' + sellLabel,'CUSTO UNIT.','TOTAL CUSTO'];
+  modulesGrid.innerHTML = datalistOptions('moduleInteriorOptions', state.lists.interiores) + datalistOptions('moduleExteriorOptions', state.lists.exteriores) + '<table class="excel-table modules-table"><colgroup>' + '<col>'.repeat(18) + '</colgroup><thead><tr>' + headings.map(function (h, index) { return '<th' + (index >= 16 ? ' class="cost-cell"' : '') + '>' + esc(h) + '</th>'; }).join('') + '</tr></thead><tbody>' + state.modules.map(function (m, i) {
     const piecePlate = isPiecePlate(m);
     const paintDoorDisabled = piecePlate ? !plateAllowsPaint(m.interior) : !plateAllowsPaint(m.exterior);
     const splitButton = num(m.quantity) > 1 ? '<div class="module-split-actions"><button class="soft-inline-button module-split-button" data-split-module="' + i + '" type="button">Dividir por modulo</button></div>' : '';
     const sideIsSplit = hasSideDistribution(m);
     return '<tr class="module-main-row">' +
       '<td class="text-center"><button class="remove-button" data-remove-module="' + i + '" type="button" title="Remover linha">&times;</button></td>' +
+      '<td class="input-cell"><select data-module="' + i + '" data-field="furnitureGroupId">' + furnitureGroupOptions(m.furnitureGroupId || '') + '</select></td>' +
       '<td class="input-cell"><select data-module="' + i + '" data-field="type">' + optionListWithBlank(state.lists.tipos, m.type) + '</select></td>' +
       '<td class="input-cell">' + input('number', m.quantity, 'min="0" step="1" data-module="' + i + '" data-field="quantity"') + '</td>' +
       '<td class="input-cell">' + input('number', m.width, 'min="0" step="1" data-module="' + i + '" data-field="width"') + '</td>' +
@@ -2069,7 +2124,7 @@ function renderModules() {
       '<td class="cost-cell text-right money-value" data-module-cost-unit="' + i + '">' + money(state.quote?.modules?.[i]?.unitCost ?? m.unitCost) + '</td>' +
       '<td class="cost-cell text-right" data-module-cost-total="' + i + '">' + money(state.quote?.modules?.[i]?.totalCost || m.quantity * m.unitCost) + '</td>' +
     '</tr>' +
-    '<tr class="module-detail-row"><td colspan="17"><div class="module-details">' +
+    '<tr class="module-detail-row"><td colspan="18"><div class="module-details">' +
       '<label><span>PINTURA INTERIOR</span><select data-module="' + i + '" data-field="paintInterior"' + (piecePlate || !plateAllowsPaint(m.interior) ? ' disabled' : '') + '>' + optionListWithBlank(state.lists.pinturas, m.paintInterior) + '</select></label>' +
       '<label><span>TIPO DE ORLA</span><select data-module="' + i + '" data-field="edgeType"' + (piecePlate ? ' disabled' : '') + '>' + optionListWithBlank(state.lists.orlas, m.edgeType) + '</select></label>' +
       '<label><span>TOPOS CIMA/BAIXO</span><select data-module="' + i + '" data-field="topBottomEdges"' + (piecePlate ? ' disabled' : '') + '>' + optionListWithBlank(state.lists.toposHorizontais, m.topBottomEdges) + '</select></label>' +
@@ -2309,6 +2364,7 @@ function renderPrint() {
   const moduleRows = state.modules.map(function (module, index) {
     const calculated = state.quote?.modules?.[index] || {};
     return {
+      furnitureGroupId: module.furnitureGroupId || '',
       description: buildDescription(module),
       quantity: module.quantity,
       unitClient: calculated.unitClient ?? module.unitClient,
@@ -2344,6 +2400,19 @@ function renderPrint() {
     '</section>';
   }
 
+  const knownFurnitureIds = new Set((state.furnitureGroups || []).map(function (group) { return group.id; }));
+  const furnitureSections = (state.furnitureGroups || []).map(function (group) {
+    const rows = moduleRows.filter(function (row) { return row.furnitureGroupId === group.id; });
+    if (!rows.length) return '';
+    const subtotal = rows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
+    return printSectionHtml('MÓVEL — ' + esc(group.name), rows, subtotal, 'print-modules-section print-furniture-section', '');
+  }).join('');
+  const ungroupedRows = moduleRows.filter(function (row) { return !row.furnitureGroupId || !knownFurnitureIds.has(row.furnitureGroupId); });
+  const ungroupedSubtotal = ungroupedRows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
+  const moduleSectionsHtml = furnitureSections + (ungroupedRows.length || !moduleRows.length
+    ? printSectionHtml(furnitureSections ? 'MÓDULOS SEM MÓVEL' : 'MÓDULOS', ungroupedRows, ungroupedSubtotal, 'print-modules-section', 'Sem módulos no orçamento')
+    : '');
+
   printSheet.innerHTML =
     '<header class="print-header">' +
       '<div class="print-brand"><img src="/assets/silwood-logo.png" alt="Silwood"></div>' +
@@ -2355,7 +2424,7 @@ function renderPrint() {
         '<div class="print-client-total"><strong>OR&Ccedil;AMENTO ' + (state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE') + ':</strong><span>' + money(totals.finalTotal) + '</span></div>' +
       '</div>' +
     '</header>' +
-    printSectionHtml('M&Oacute;DULOS', moduleRows, totals.moduleTotal || 0, 'print-modules-section', 'Sem módulos no orçamento') +
+    moduleSectionsHtml +
     '<div class="' + (extraRows.length ? 'print-extras-page' : 'print-extras-empty-page') + '">' +
       printSectionHtml('EXTRAS', extraRows, totals.extrasTotal || 0, 'print-extras-section', 'Sem extras no orçamento') +
       '<div class="print-grand-total"><span>TOTAL GERAL C/ EXTRAS</span><strong>' + money(totals.finalTotal) + '</strong></div>' +
@@ -2367,6 +2436,7 @@ function addModule() {
   state.modules.push({
     id: 'module_' + Date.now(),
     blank: true,
+    furnitureGroupId: '',
     type: '',
     family: '',
     quantity: 0,
@@ -2409,6 +2479,7 @@ function resetQuote() {
   state.client = { name: '', location: '', date: '' };
   state.modules = [];
   state.extras = [];
+  state.furnitureGroups = [];
   persistQuote();
   renderClient();
   renderModules();
@@ -6467,6 +6538,8 @@ document.addEventListener('keydown', function (event) {
 });
 
 document.querySelector('#addModuleButton').addEventListener('click', addModule);
+document.querySelector('#addFurnitureButton').addEventListener('click', createFurnitureGroup);
+document.querySelector('#manageFurnitureButton').addEventListener('click', manageFurnitureGroups);
 document.querySelector('#addExtraButton').addEventListener('click', addExtra);
 document.querySelector('#resetButton').addEventListener('click', resetQuote);
 if (saveHistoryButton) {

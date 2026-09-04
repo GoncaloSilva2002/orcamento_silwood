@@ -50,6 +50,8 @@ button:hover { background: #e2f0d9; }
 .section-title-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; align-items: stretch; }
 .section-title-row .section-title { display: grid; place-items: center; }
 .section-title-row button { border-left: 0; background: #e2f0d9; }
+.module-section-actions { display: flex; }
+.module-section-actions button + button { border-left: 1px solid #7f7f7f; }
 .remove-button { width: 24px; min-height: 22px; padding: 0; font-size: 17px; line-height: 1; color: #9c0006; background: #ffc7ce; border-color: #c65911; }
 .final-table col:nth-child(9) { width: 54px; }
 @media print {
@@ -347,6 +349,14 @@ input[readonly] { color: #555; cursor: default; }
 .modules-table col:nth-child(n+3):nth-child(-n+8) { width: 4%; }
 .modules-table col:nth-child(n+9):nth-child(-n+13) { width: 8.5%; }
 .modules-table col:nth-child(n+14):nth-child(-n+17) { width: 6.4%; }
+
+/* Module grouping adds the furniture selector as the second column. */
+.modules-table col:nth-child(1) { width: 2.5%; }
+.modules-table col:nth-child(2),
+.modules-table col:nth-child(3) { width: 7%; }
+.modules-table col:nth-child(n+4):nth-child(-n+10) { width: 3.5%; }
+.modules-table col:nth-child(n+11):nth-child(-n+14) { width: 7.5%; }
+.modules-table col:nth-child(n+15):nth-child(-n+18) { width: 6.5%; }
 
 select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
