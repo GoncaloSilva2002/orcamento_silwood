@@ -706,6 +706,8 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
 
   .print-budget-section {
     margin-top: 7mm;
+    page-break-inside: avoid;
+    break-inside: avoid;
   }
 
   .print-budget-section > h2 {
@@ -717,6 +719,8 @@ select:disabled { color: #7f7f7f; background: #e7e6e6; cursor: not-allowed; }
     font-size: 14px;
     letter-spacing: .08em;
     text-align: left;
+    page-break-after: avoid;
+    break-after: avoid;
   }
 
   .print-extras-section > h2 {

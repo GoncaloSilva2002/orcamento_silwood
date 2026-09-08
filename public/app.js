@@ -2420,11 +2420,15 @@ function renderPrint() {
   const ungroupedSubtotal = ungroupedRows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
   const ungroupedExtraRows = extraRows.filter(function (row) { return !row.furnitureGroupId || !knownFurnitureIds.has(row.furnitureGroupId); });
   const ungroupedExtraSubtotal = ungroupedExtraRows.reduce(function (sum, row) { return sum + (Number(row.totalClient) || 0); }, 0);
-  const ungroupedHtml = (ungroupedRows.length || (!moduleRows.length && !furnitureBlocksHtml)
-    ? printSectionHtml('MÓDULOS SEM MÓVEL', ungroupedRows, ungroupedSubtotal, 'print-modules-section', 'Sem módulos no orçamento')
-    : '') + (ungroupedExtraRows.length
+  const hasUngroupedContent = ungroupedRows.length || ungroupedExtraRows.length || (!moduleRows.length && !furnitureBlocksHtml);
+  const ungroupedHtml = hasUngroupedContent ? '<div class="print-furniture-block print-ungrouped-block">' +
+    (ungroupedRows.length || (!moduleRows.length && !furnitureBlocksHtml)
+      ? printSectionHtml('MÓDULOS SEM MÓVEL', ungroupedRows, ungroupedSubtotal, 'print-modules-section', 'Sem módulos no orçamento')
+      : '') +
+    (ungroupedExtraRows.length
       ? printSectionHtml('EXTRAS SEM MÓVEL', ungroupedExtraRows, ungroupedExtraSubtotal, 'print-extras-section', '')
-      : '');
+      : '') +
+    '</div>' : '';
 
   printSheet.innerHTML =
     '<header class="print-header">' +
@@ -3546,6 +3550,9 @@ function plateReferenceIdentity(value) {
 
 function normalizePlateAliasText(value) {
   let text = comparableText(value)
+    .replace(/\bTOUCH\b/g, 'TC')
+    .replace(/\bBRILHO\b/g, 'BRI')
+    .replace(/\bEXTRA[\s-]+MATE\b/g, 'EXT')
     .replace(/\bDONAE\b/g, 'SONAE')
     .replace(/\bDO\s*-\s*/g, 'SONAE ');
   if ((text.includes('CINZA ESCURO') || text.includes('SONAE')) && /\bF167\b/.test(text)) {
@@ -3563,12 +3570,12 @@ function plateCodeThicknessKeyFromText(value) {
   if (text.includes('CONTRAPLACADO') && text.includes('WBP')) return 'CONTRAPLACADO WBP|' + thickness;
   if (text.includes('MDF') && /HIDR[OI]FUG/.test(text)) return 'MDF HIDROFUGO|' + thickness;
   if (text.includes('MDF') && text.includes('STANDARD')) return 'MDF STANDARD|' + thickness;
-  if (text.includes('B3768') && /\b16\s*MM\b|\b16\b/.test(text)) return 'B3768|16';
-  if (text.includes('B3768') && /\b10\s*MM\b|\b10\b/.test(text)) return 'B3768|10';
   const knownCode = knownPlateCodeFromText(text);
-  const codeMatch = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH))?/);
+  const codeMatch = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH|TC|SILK|EXT))?/);
   if (!codeMatch && !knownCode) return '';
-  const rawCode = knownCode || (codeMatch[1] + (codeMatch[2] ? ' ' + codeMatch[2] : ''));
+  const rawCode = codeMatch && codeMatch[2] && (!knownCode || knownCode.split(' ')[0] === codeMatch[1])
+    ? codeMatch[1] + ' ' + codeMatch[2]
+    : knownCode || (codeMatch[1] + (codeMatch[2] ? ' ' + codeMatch[2] : ''));
   const code = canonicalPlateCode(rawCode);
   if (/^\d+$/.test(code) && !officialPlateNames[code]) return '';
   if (code === 'RAL9003') return '';
@@ -3577,7 +3584,7 @@ function plateCodeThicknessKeyFromText(value) {
 
 function canonicalPlateCode(code) {
   const normalized = comparableText(code);
-  if (normalized === 'F067' || normalized.startsWith('F067 ')) return 'F067 SC';
+  if (normalized === 'F067') return 'F067 SC';
   return code;
 }
 
@@ -3629,7 +3636,7 @@ const officialPlateNames = {
   F067: 'F067 SC SONAE CINZA ALUMINIO',
   F755: 'F755 TL SONAE AGADIR LINHO',
   L167: 'L167 TL SONAE CINZA ESCURO',
-  B116: 'B116 BRI POLYREY BEGE NATUR',
+  B116: 'B116 POLYREY BEGE NATUR',
   B3768: 'B3768 SC SONAE PRIME WHITE',
   L166: 'L166 SC SONAE CINZA CLARO',
   U999: 'U999 EGGER PRETO',
@@ -3687,13 +3694,22 @@ function plateOfficialNameFromKey(key) {
   const parts = key.split('|');
   const code = parts[0];
   const baseCode = code.split(' ')[0];
-  const officialName = officialPlateNames[code] || officialPlateNames[baseCode];
-  return officialName ? officialName + ' - ' + parts[1] + 'mm' : '';
+  let officialName = officialPlateNames[code] || officialPlateNames[baseCode];
+  if (officialName && !officialPlateNames[code]) {
+    officialName = officialName.replace(new RegExp('^' + escapeRegExp(baseCode) + '(?:\\s+(?:ST\\d+|SC|TL|BRI|GLOSS|FUN|FA|FH|TC|SILK|EXT))?\\b'), code);
+  }
+  return officialName ? expandPlateFinishName(officialName) + ' - ' + parts[1] + 'mm' : '';
+}
+
+function expandPlateFinishName(value) {
+  return String(value || '').replace(/\b(TC|BRI|EXT)\b/gi, function (finish) {
+    return { TC: 'Touch', BRI: 'Brilho', EXT: 'Extra Mate' }[finish.toUpperCase()];
+  });
 }
 
 function plateGroupLabel(item) {
   const key = plateCodeThicknessKey(item);
-  if (!key) return cleanMaterialName(item?.name || item?.reference || '');
+  if (!key) return expandPlateFinishName(cleanMaterialName(item?.name || item?.reference || ''));
   if (officialPlateFullNames[key]) return officialPlateFullNames[key];
   const officialName = plateOfficialNameFromKey(key);
   if (officialName) return officialName;
@@ -3716,8 +3732,8 @@ function plateGroupLabel(item) {
   const code = parts[0];
   const baseCode = code.split(' ')[0];
   const knownName = bestKnownPlateNameForKey(key);
-  if (knownName) return knownName;
-  return code + (codeLabels[baseCode] ? ' ' + codeLabels[baseCode] : '') + ' - ' + parts[1] + 'mm';
+  if (knownName) return expandPlateFinishName(knownName);
+  return expandPlateFinishName(code + (codeLabels[baseCode] ? ' ' + codeLabels[baseCode] : '') + ' - ' + parts[1] + 'mm');
 }
 
 function canonicalPlateNameFromReference(value) {
@@ -3780,8 +3796,8 @@ function normalizePlateItemName(item) {
   if (item.name) item.name = cleanMaterialName(String(item.name).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167'));
   if (item.reference) item.reference = cleanMaterialName(String(item.reference).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167').replace(/\bDO\s*-\s*/gi, 'SONAE '));
   const canonical = canonicalPlateNameFromReference([item.reference, item.name].filter(Boolean).join(' '));
-  if (canonical) item.name = cleanMaterialName(canonical);
-  if (item.reference) item.reference = cleanMaterialName(item.reference);
+  if (canonical) item.name = expandPlateFinishName(cleanMaterialName(canonical));
+  if (item.reference) item.reference = expandPlateFinishName(cleanMaterialName(item.reference));
   return item;
 }
 
@@ -3809,16 +3825,8 @@ function duplicatePlateReferenceKeys() {
 function plateGroupKey(item) {
   const codeThicknessKey = plateCodeThicknessKey(item);
   if (codeThicknessKey) {
-    const parts = codeThicknessKey.split('|');
-    const reference = parts[0].trim();
-    const thickness = parts.slice(1).join('|');
-    // Acabamentos como TL, SC, ST9, FH, etc. fazem parte da descrição
-    // comercial, não da referência usada no comparador. Assim, por exemplo,
-    // F755 e F755 TL de 10 mm ficam no mesmo grupo e mostram todos os
-    // fornecedores disponíveis.
-    const referenceMatch = reference.match(/^([A-Z]{1,4}\d{2,5}|\d{3,5})(?:\s+.+)?$/);
-    const comparisonReference = referenceMatch ? referenceMatch[1] : reference;
-    return 'CODE|' + comparisonReference + '|' + thickness;
+    // A referência, o acabamento e a espessura identificam cada variante.
+    return 'CODE|' + codeThicknessKey;
   }
   const referenceKey = plateReferenceIdentity(item?.reference);
   if (referenceKey && duplicatePlateReferenceKeys().has(referenceKey)) return 'REF|' + referenceKey;

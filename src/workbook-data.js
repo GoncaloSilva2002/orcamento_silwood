@@ -105,6 +105,9 @@ function normalizeComparisonKey(value) {
 
 function basePlateText(value) {
   return normalizeComparisonKey(value)
+    .replace(/\bTOUCH\b/g, 'TC')
+    .replace(/\bBRILHO\b/g, 'BRI')
+    .replace(/\bEXTRA[\s-]+MATE\b/g, 'EXT')
     .replace(/\bDONAE\b/g, 'SONAE')
     .replace(/\bDNAE\b/g, 'SONAE')
     .replace(/\bSNAE\b/g, 'SONAE')
@@ -112,7 +115,7 @@ function basePlateText(value) {
 }
 
 function basePlateFamilyKey(name, reference) {
-  const text = basePlateText([name, reference].filter(Boolean).join(' '));
+  const text = basePlateText([reference, name].filter(Boolean).join(' '));
   const thicknessMatch = text.match(/\b(\d+(?:[,.]\d+)?)\s*MM\b/) || text.match(/(?:^|\s|-)(\d+(?:[,.]\d+)?)\s*$/);
   const thickness = thicknessMatch ? thicknessMatch[1].replace(',', '.') : '';
   if (text.includes('LUNAWOOD') && /\b212\b/.test(text)) return 'LUNAWOOD 212|3000';
@@ -131,14 +134,14 @@ function basePlateFamilyKey(name, reference) {
       .trim();
     return 'FOLHEADO ' + wood + '|' + thickness;
   }
-  const knownCodeMatch = text.match(/\b(0080 FH|0085 FH|0026 FH|0074 FH|B3768|B3822|B030|B117|B070|B116|C104|C182|C202|CF026|CIF026|CINF026|F026|F067|F6012|F755|G003|G029|G075|H1316|H1357|H1384|H1386|H1714|H1715|H3146|H3368|L166|L167|L3031|M100|M2112|M6341|N005|P001|P114|U156|U608|U702|U705|U707|U750|U775|U999|W1000|W1200)\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH))?/);
+  const knownCodeMatch = text.match(/\b(0080 FH|0085 FH|0026 FH|0074 FH|B3768|B3822|B030|B117|B070|B116|C104|C182|C202|CF026|CIF026|CINF026|F026|F067|F6012|F755|G003|G029|G075|H1316|H1357|H1384|H1386|H1714|H1715|H3146|H3368|L166|L167|L3031|M100|M2112|M6341|N005|P001|P114|U156|U608|U702|U705|U707|U750|U775|U999|W1000|W1200)\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH|TC|SILK|EXT))?/);
   if (knownCodeMatch) {
     let code = knownCodeMatch[1];
     if (['CF026', 'CIF026', 'CINF026'].includes(code)) code = 'F026';
     if (knownCodeMatch[2] && !code.includes(' ')) code += ' ' + knownCodeMatch[2];
     return code + '|' + thickness;
   }
-  const codeMatch = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH))?/);
+  const codeMatch = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH|TC|SILK|EXT))?/);
   if (codeMatch) return (codeMatch[1] + (codeMatch[2] ? ' ' + codeMatch[2] : '')) + '|' + thickness;
   return text.replace(/\b\d+(?:[,.]\d+)?\s*MM\b/g, '').trim() + '|' + thickness;
 }

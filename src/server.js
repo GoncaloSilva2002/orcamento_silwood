@@ -1137,18 +1137,24 @@ function mergeCatalogPrices(target, incoming, matcher) {
 }
 
 function materialCodeThicknessKey(value) {
-  const text = comparableText(value).replace(/\|/g, ' ');
+  const text = comparableText(value).replace(/\|/g, ' ')
+    .replace(/\bTOUCH\b/g, 'TC')
+    .replace(/\bBRILHO\b/g, 'BRI')
+    .replace(/\bEXTRA[\s-]+MATE\b/g, 'EXT');
   const thickness = text.match(/\b(\d+(?:[,.]\d+)?)\s*MM\b/) || text.match(/(?:^|\s|-)(\d+(?:[,.]\d+)?)\s*$/);
   if (thickness && text.includes('MDF') && /HIDR[OI]FUG/.test(text)) return 'MDF HIDROFUGO|' + thickness[1].replace(',', '.');
   if (thickness && text.includes('MDF') && text.includes('STANDARD')) return 'MDF STANDARD|' + thickness[1].replace(',', '.');
-  const code = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH))?/);
+  const code = text.match(/\b([A-Z]{1,4}\d{2,5}|\d{3,5})\b(?:\s+(ST\d+|SC|TL|BRI|GLOSS|FUN|FA|FH|TC|SILK|EXT))?/);
   if (!thickness || !code) return '';
-  let plateCode = comparableText(code[1]) === 'F067' ? 'F067 SC' : code[1];
+  let plateCode = comparableText(code[1]) === 'F067' && !code[2] ? 'F067 SC' : code[1];
   if (code[2] && !String(plateCode).includes(' ')) plateCode += ' ' + code[2];
   return plateCode + '|' + thickness[1].replace(',', '.');
 }
 
 function sameMaterialPrice(item, source) {
+  const itemVariant = materialCodeThicknessKey(item.reference) || materialCodeThicknessKey(item.name);
+  const sourceVariant = materialCodeThicknessKey(source.reference) || materialCodeThicknessKey(source.name);
+  if (itemVariant && sourceVariant) return itemVariant === sourceVariant;
   if (item.name === source.name) return true;
   if (comparableText(item.name) === comparableText(source.name)) return true;
   const sourceKey = materialCodeThicknessKey(source.name || source.reference || source.comparisonKey);
