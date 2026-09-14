@@ -91,7 +91,7 @@ function catalogSnapshot() {
 }
 async function refreshCatalog() { installCatalog(await catalogStore.read()); }
 app.use('/api', async (req, res, next) => {
-  if (!['/bootstrap', '/calculate', '/supplier-prices', '/supplier-prices/plate'].includes(req.path)) return next();
+  if (!['/bootstrap', '/calculate', '/supplier-prices', '/supplier-prices/plate', '/supplier-prices/item'].includes(req.path)) return next();
   try { await refreshCatalog(); next(); }
   catch (error) { res.status(503).json({ error: error.message }); }
 });
@@ -110,6 +110,17 @@ function saveSupplierPrices(payload) {
   });
   savingCatalog = operation.catch(() => {});
   return operation;
+}
+
+function deleteSupplierCatalogItem(type, index) {
+  const payload = {};
+  if (!['plates', 'paintings', 'paintingComponents', 'edges', 'extras', 'drawerComponents', 'hinges', 'hingeComponents', 'openingSystemComponents'].includes(type)) {
+    throw new Error('Tipo de material invalido.');
+  }
+  const itemIndex = Number(index);
+  if (!Number.isInteger(itemIndex) || itemIndex < 0) throw new Error('Indice do material invalido.');
+  payload[type] = [{ __dirtyIndex: itemIndex, __delete: true }];
+  return saveSupplierPrices(payload);
 }
 const platePricingRules = { labor: 2.02, clientMultiplier: 3, resellerMultiplier: 1.4 };
 const skirtingLacquerClientPerMeter = 6;
@@ -734,7 +745,7 @@ function applySupplierPayload(payload) {
       if (plate) {
         Object.assign(plate, cleanChange);
         updatePlatePrices(plate, cleanChange);
-      } else {
+      } else if (payload.addMissingPlates === true) {
         const next = { ...cleanChange };
         updatePlatePrices(next, cleanChange);
         catalog.plates.push(next);
@@ -1439,6 +1450,15 @@ app.post('/api/supplier-prices/plate', requireAdmin, async (req, res) => {
 
   try {
     const result = await saveSupplierPrices({ plates: [plate], addMissingPlates: true });
+    res.json({ ...supplierPricePayload(), saved: result });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+app.delete('/api/supplier-prices/item', requireAdmin, async (req, res) => {
+  try {
+    const result = await deleteSupplierCatalogItem(String(req.body?.type || ''), req.body?.index);
     res.json({ ...supplierPricePayload(), saved: result });
   } catch (error) {
     res.status(500).json({ error: error.message });

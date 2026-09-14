@@ -3302,13 +3302,30 @@ function supplierListByType(type) {
   return [];
 }
 
-function deleteSupplierItem(type, index) {
+async function deleteSupplierItem(type, index) {
   const list = supplierListByType(type);
   const item = list[Number(index)];
   if (!item) return;
   const label = item.name || item.item || item.label || 'este item';
   if (!window.confirm('Tens a certeza que pretendes eliminar "' + label + '" da lista?')) return;
-  trackSupplierChange(type, { __delete: true, __dirtyIndex: Number(index) }, Number(index));
+  sourceStatus.textContent = 'A eliminar item no catálogo...';
+  const response = await fetch('/api/supplier-prices/item', {
+    method: 'DELETE',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ type: type, index: Number(index) })
+  });
+  const data = await readJson(response, {});
+  if (!response.ok) throw new Error(data.error || 'Não foi possível eliminar o item.');
+  state.pricingRules = data.rules;
+  state.supplierPrices = data.plates;
+  const bootstrapResponse = await fetch('/api/bootstrap');
+  if (bootstrapResponse.ok) {
+    const fresh = await readJson(bootstrapResponse, {});
+    state.catalog = fresh.catalog;
+    state.lists = fresh.lists;
+    state.typePresets = fresh.typePresets;
+    ensureRoupeiroModuleType();
+  }
   persistSupplierRemoval(type, item);
   if (type === 'plates') {
     persistSupplierRemoval('plates', item);
@@ -3337,7 +3354,7 @@ function deleteSupplierItem(type, index) {
   if (type === 'extras' || type === 'doorSystems' || type === 'openingSystemComponents') syncDoorSystemExtras();
   renderSupplierPrices();
   calculate({ renderFinal: false }).catch(function (error) { sourceStatus.textContent = error.message; });
-  sourceStatus.textContent = 'Item eliminado da lista';
+  sourceStatus.textContent = 'Item eliminado da base de dados';
 }
 
 function supplierDeleteButton(type, index) {
@@ -3833,6 +3850,7 @@ function duplicatePlateReferenceKeys() {
 }
 
 function plateGroupKey(item) {
+  if (item && item.compareGroup) return 'MANUAL|' + comparableText(item.compareGroup);
   const codeThicknessKey = plateCodeThicknessKey(item);
   if (codeThicknessKey) {
     // A referência, o acabamento e a espessura identificam cada variante.
@@ -3878,6 +3896,10 @@ function plateBestOptionKey(item) {
     plateReferenceIdentity(item.reference) || itemIdentity(item.reference || item.name),
     supplierNumber(item.supplierPrice)
   ].join('|');
+}
+
+function plateCompareGroupName(item) {
+  return item?.compareGroup || plateGroupLabel(item) || item?.name || '';
 }
 
 function dedupePlateMarketEntries(entries) {
@@ -5425,7 +5447,7 @@ function otherPriceRow(search, item, index) {
 
 function plateComparatorRow(item, index, bestKeys) {
   const best = bestKeys.has(plateBestOptionKey(item));
-  return '<div class="plate-option-row ' + (best ? 'supplier-best-row' : '') + '" data-plate-key="' + esc(plateGroupKey(item)) + '" data-plate-option="' + esc(plateBestOptionKey(item)) + '" data-supplier-search="' + esc([item.name, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
+  return '<div class="plate-option-row ' + (best ? 'supplier-best-row' : '') + '" draggable="true" data-drag-plate-index="' + attrEsc(index) + '" data-plate-key="' + esc(plateGroupKey(item)) + '" data-plate-option="' + esc(plateBestOptionKey(item)) + '" data-supplier-search="' + esc([item.name, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
     '<label class="plate-reference"><span>Referencia</span><input value="' + esc(item.reference || item.name) + '" data-supplier-index="' + index + '" data-supplier-field="reference"></label>' +
     '<label class="plate-supplier"><span>Fornecedor</span><input value="' + esc(item.supplier || '') + '" data-supplier-index="' + index + '" data-supplier-field="supplier"></label>' +
     '<label class="plate-price-input"><span>Preco fornecedor</span><input type="number" min="0" step="0.01" value="' + supplierNumber(item.supplierPrice) + '" data-supplier-index="' + index + '" data-supplier-field="supplierPrice"></label>' +
@@ -5459,10 +5481,10 @@ function plateComparatorGroupsHtml() {
       return plateComparatorRow(entry.item, entry.index, bestKeys);
     }).join('');
     return {
-      label: plateGroupLabel(best) || best.name || '',
-      html: '<div class="plate-compare-group" data-supplier-search="' + esc(search) + '">' +
+      label: plateCompareGroupName(best),
+      html: '<div class="plate-compare-group" data-plate-drop-key="' + attrEsc(key) + '" data-plate-drop-name="' + attrEsc(plateCompareGroupName(best)) + '" data-supplier-search="' + esc(search) + '">' +
       '<div class="plate-compare-header">' +
-        '<div><strong>' + esc(plateGroupLabel(best) || best.name) + '</strong><small>' + entries.length + ' ' + (entries.length === 1 ? 'opcao' : 'opcoes') + ' de mercado</small></div>' +
+        '<div><input class="plate-compare-title-input" value="' + esc(plateCompareGroupName(best)) + '" data-plate-group-name="' + attrEsc(key) + '"><small>' + entries.length + ' ' + (entries.length === 1 ? 'opcao' : 'opcoes') + ' de mercado</small></div>' +
         '<span>Melhor: ' + esc(best.supplier || '') + ' - ' + money(best.supplierPrice) + '</span>' +
       '</div>' +
       '<div class="plate-options-list">' + rows + '</div>' +
@@ -5822,11 +5844,56 @@ function renderSupplierPrices() {
       renderSupplierPrices();
     });
   });
+  supplierPricesGrid.querySelectorAll('[data-plate-group-name]').forEach(function (input) {
+    input.addEventListener('change', function (event) {
+      const key = event.target.dataset.plateGroupName;
+      const name = String(event.target.value || '').trim();
+      if (!key || !name) return;
+      state.supplierPrices.forEach(function (item, index) {
+        if (plateGroupKey(item) !== key) return;
+        item.compareGroup = name;
+        trackSupplierChange('plates', item, index);
+      });
+      plateDuplicateReferenceKeysCache = null;
+      renderSupplierPrices();
+      sourceStatus.textContent = 'Nome do grupo atualizado. Clica em Gravar preços para guardar.';
+    });
+  });
+  supplierPricesGrid.querySelectorAll('[data-drag-plate-index]').forEach(function (row) {
+    row.addEventListener('dragstart', function (event) {
+      event.dataTransfer.setData('text/plain', row.dataset.dragPlateIndex);
+      event.dataTransfer.effectAllowed = 'move';
+    });
+  });
+  supplierPricesGrid.querySelectorAll('[data-plate-drop-key]').forEach(function (group) {
+    group.addEventListener('dragover', function (event) {
+      event.preventDefault();
+      group.classList.add('plate-compare-drop-active');
+      event.dataTransfer.dropEffect = 'move';
+    });
+    group.addEventListener('dragleave', function () {
+      group.classList.remove('plate-compare-drop-active');
+    });
+    group.addEventListener('drop', function (event) {
+      event.preventDefault();
+      group.classList.remove('plate-compare-drop-active');
+      const index = Number(event.dataTransfer.getData('text/plain'));
+      const item = state.supplierPrices[index];
+      const targetName = group.dataset.plateDropName || '';
+      if (!item || !targetName) return;
+      item.compareGroup = targetName;
+      trackSupplierChange('plates', item, index);
+      plateDuplicateReferenceKeysCache = null;
+      renderSupplierPrices();
+      sourceStatus.textContent = 'Material movido para o comparador. Clica em Gravar preços para guardar.';
+    });
+  });
   const addButton = supplierPricesGrid.querySelector('[data-add-supplier-item]');
   if (addButton) addButton.addEventListener('click', addSupplierItem);
   supplierPricesGrid.querySelectorAll('[data-delete-supplier-type]').forEach(function (button) {
     button.addEventListener('click', function () {
-      deleteSupplierItem(button.dataset.deleteSupplierType, button.dataset.deleteSupplierIndex);
+      deleteSupplierItem(button.dataset.deleteSupplierType, button.dataset.deleteSupplierIndex)
+        .catch(function (error) { sourceStatus.textContent = error.message; });
     });
   });
   supplierPricesGrid.querySelectorAll('[data-new-item-field]').forEach(function (element) {
@@ -6197,7 +6264,6 @@ async function saveSupplierPrices() {
   sourceStatus.textContent = 'A guardar preços no catálogo...';
   try {
     const payload = supplierDirtyPayload();
-    if (Array.isArray(payload.plates) && payload.plates.length) payload.addMissingPlates = true;
     const response = await fetch('/api/supplier-prices', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },

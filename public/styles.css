@@ -2473,6 +2473,18 @@ select,
   font-size: 15px;
 }
 
+.plate-compare-title-input {
+  width: min(520px, 100%);
+  min-height: 34px;
+  border: 1px solid #d9dde5;
+  border-radius: 6px;
+  padding: 6px 8px;
+  color: #202123;
+  font-size: 15px;
+  font-weight: 800;
+  background: #fff;
+}
+
 .plate-compare-header small {
   display: block;
   margin-top: 3px;
@@ -2512,6 +2524,15 @@ select,
   border-color: #bfe6c7;
   background: #f0fbf2;
   box-shadow: inset 4px 0 0 #2f8f46;
+}
+
+.plate-option-row[draggable="true"] {
+  cursor: grab;
+}
+
+.plate-compare-group.plate-compare-drop-active {
+  border-color: #2f8f46;
+  box-shadow: 0 0 0 3px rgba(47,143,70,.16);
 }
 
 .plate-option-row label,
