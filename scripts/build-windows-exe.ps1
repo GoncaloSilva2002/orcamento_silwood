@@ -44,9 +44,10 @@ if (!(Test-Path $exePath)) {
 New-Item -ItemType Directory -Path $releaseDir | Out-Null
 Copy-Item -LiteralPath $exePath -Destination (Join-Path $releaseDir "silwood-orcamentos.exe")
 Copy-Item -LiteralPath (Join-Path $root "public") -Destination $releaseDir -Recurse
-Copy-Item -LiteralPath (Join-Path $root "data") -Destination $releaseDir -Recurse
-Copy-Item -LiteralPath (Join-Path $root "scripts") -Destination $releaseDir -Recurse
-Copy-Item -LiteralPath (Join-Path $root "config") -Destination $releaseDir -Recurse
+New-Item -ItemType Directory -Path (Join-Path $releaseDir "data") | Out-Null
+Copy-Item -LiteralPath (Join-Path $root "data\catalog-seed.json") -Destination (Join-Path $releaseDir "data")
+
+
 Copy-Item -LiteralPath (Join-Path $root ".env.example") -Destination (Join-Path $releaseDir ".env.example")
 
 Write-Host ""

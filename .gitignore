@@ -7,3 +7,5 @@ data/~$*
 *.log
 *.rar
 .env
+data/catalog-local.json
+data/catalog-local.json.tmp

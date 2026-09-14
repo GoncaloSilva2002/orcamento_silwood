@@ -7,7 +7,7 @@ Este guia e para colocar a app num servidor para varias pessoas da empresa usare
 - Node.js 18 ou superior.
 - HTTPS no dominio final.
 - Supabase configurado para login, utilizadores e historico.
-- Pasta `data/` persistente no servidor, porque contem a base Excel e ficheiros de precos.
+- Catálogo importado no Supabase conforme README.md. Excel não é necessário.
 
 ## Variaveis de ambiente
 
@@ -16,6 +16,7 @@ Cria um ficheiro `.env` no servidor, na raiz da app:
 ```env
 PORT=3000
 NODE_ENV=production
+CATALOG_STORAGE=supabase
 
 SUPABASE_URL=https://teu-projeto.supabase.co
 SUPABASE_ANON_KEY=publishable-key
@@ -39,12 +40,16 @@ No Supabase, abre o SQL Editor e executa:
 
 ```text
 supabase/schema.sql
+supabase/catalog.sql
 ```
 
 Isto cria:
 
 - `profiles`, com `role` e `active`.
 - `quote_history`, associado ao utilizador dono do orcamento.
+- `app_catalog`, com o catálogo e a revisão das alterações.
+
+Depois executa `npm run migrate:supabase` uma vez. A importação recusa substituir dados existentes.
 
 ## Instalar no servidor
 

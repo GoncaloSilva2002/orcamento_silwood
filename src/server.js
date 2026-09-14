@@ -2,8 +2,6 @@
 const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
-const { execFile } = require('child_process');
-const { promisify } = require('util');
 const express = require('express');
 
 const rootDir = path.resolve(__dirname, '..');
@@ -65,20 +63,54 @@ function localNetworkUrls() {
 app.use(express.json({ limit: '2mb' }));
 app.use(express.static(path.join(runtimeRootDir(), 'public')));
 
-let workbookFile = workbookData.workbookPath;
-function fileStamp(file) {
-  return file && fs.existsSync(file) ? file + ':' + fs.statSync(file).mtimeMs : '';
+const { createCatalogStore } = require('./catalog-store');
+const { createPricingEngine } = require('./pricing-engine');
+const catalogStore = createCatalogStore({
+  url: supabaseUrl, key: supabaseServiceRoleKey, mode: process.env.CATALOG_STORAGE,
+  file: process.env.CATALOG_LOCAL_FILE || path.join(runtimeRootDir(), 'data/catalog-local.json'),
+  seed: path.join(runtimeRootDir(), 'data/catalog-seed.json')
+});
+let catalogRevision = -1;
+function installCatalog(row) {
+  if (row.revision < catalogRevision) return;
+  workbookData = createPricingEngine(structuredClone(row.data));
+  ({ catalog, lists, typePresets, enrichModules, calculateModulePrice } = workbookData);
+  catalogRevision = row.revision;
+  lists.interiores = [...new Set(catalog.plates.map(item => item.name))];
+  lists.exteriores = lists.interiores.slice();
+  lists.pinturas = catalog.paintings.map(item => item.name);
+  lists.sistemasPorta = catalog.doorSystems.map(item => item.name);
+  lists.dobradicas = catalog.hinges.map(item => item.name);
+  lists.orlas = catalog.edges.map(item => item.name);
+  lists.extraGroups = [...new Set(catalog.extras.map(item => item.group))];
+  Object.assign(quoteSeed, { catalog, lists, typePresets });
+  quoteSeed.source = { storage: catalogStore.mode, present: true, note: 'Catálogo independente do Excel' };
 }
-function dataStamp() {
-  return [fileStamp(workbookData.resolveWorkbookPath()), fileStamp(workbookData.comparisonWorkbookPath?.())].join('|');
+function catalogSnapshot() {
+  return structuredClone({ schemaVersion: 1, catalog, lists, typePresets, feetPrices: workbookData.feetPrices });
 }
-let workbookStamp = dataStamp();
-const priceOverridesFile = path.join(runtimeRootDir(), 'data', 'price-overrides.json');
-const saveSupplierPricesScript = path.join(runtimeRootDir(), 'scripts', 'excel-save-supplier-prices.ps1');
-const backupDirectory = path.join(runtimeRootDir(), 'data', 'backups');
-const workDirectory = path.join(runtimeRootDir(), 'work');
-const pendingSupplierPricesFile = path.join(runtimeRootDir(), 'data', 'pending-supplier-prices.json');
-const execFileAsync = promisify(execFile);
+async function refreshCatalog() { installCatalog(await catalogStore.read()); }
+app.use('/api', async (req, res, next) => {
+  if (!['/bootstrap', '/calculate', '/supplier-prices', '/supplier-prices/plate'].includes(req.path)) return next();
+  try { await refreshCatalog(); next(); }
+  catch (error) { res.status(503).json({ error: error.message }); }
+});
+let savingCatalog = Promise.resolve();
+function saveSupplierPrices(payload) {
+  const operation = savingCatalog.then(async () => {
+    await refreshCatalog();
+    const before = catalogSnapshot();
+    const revision = catalogRevision;
+    let next;
+    try { applySupplierPayload(payload); next = catalogSnapshot(); }
+    finally { installCatalog({ data: before, revision }); }
+    const saved = await catalogStore.save(next, revision);
+    installCatalog(saved);
+    return { updated: Object.values(payload).reduce((n, items) => n + (Array.isArray(items) ? items.length : 0), 0), storage: catalogStore.mode };
+  });
+  savingCatalog = operation.catch(() => {});
+  return operation;
+}
 const platePricingRules = { labor: 2.02, clientMultiplier: 3, resellerMultiplier: 1.4 };
 const skirtingLacquerClientPerMeter = 6;
 const wardrobeDrawerGroup = 'Gavetas Roupeiro';
@@ -404,17 +436,6 @@ async function deleteQuoteHistoryForSession(session, id) {
   });
 }
 
-function assertWorkbookWritable(file) {
-  let handle;
-  try {
-    handle = fs.openSync(file, 'r+');
-  } catch (error) {
-    throw new Error('O ficheiro Excel estÃ¡ bloqueado pelo Windows. Fecha processos Excel em segundo plano e tenta novamente.');
-  } finally {
-    if (handle !== undefined) fs.closeSync(handle);
-  }
-}
-
 function cleanComparableSource(value) {
   let text = String(value || '');
   text = text
@@ -614,41 +635,6 @@ function updatePlatePrices(plate, changes) {
     : plate.cost * platePricingRules.resellerMultiplier;
 }
 
-function loadPriceOverrides() {
-  if (!fs.existsSync(priceOverridesFile)) return;
-  try {
-    const overrides = JSON.parse(fs.readFileSync(priceOverridesFile, 'utf8'));
-    if (Array.isArray(overrides.plates) || Array.isArray(overrides.extras)) {
-      applySupplierPayload(overrides);
-      return;
-    }
-    const legacy = {
-      plates: Object.entries(overrides).map(([name, changes]) => ({ name, ...(changes || {}) }))
-    };
-    applySupplierPayload(legacy);
-  } catch (error) {
-    console.error('NÃ£o foi possÃ­vel carregar os preÃ§os guardados:', error.message);
-  }
-}
-
-function readPriceOverridesPayload() {
-  if (!fs.existsSync(priceOverridesFile)) return {};
-  try {
-    const overrides = JSON.parse(fs.readFileSync(priceOverridesFile, 'utf8')) || {};
-    if (Array.isArray(overrides.plates) || Array.isArray(overrides.extras)) return overrides;
-    return { plates: Object.entries(overrides).map(([name, changes]) => ({ name, ...(changes || {}) })) };
-  } catch (error) {
-    return {};
-  }
-}
-
-function persistPriceOverridesPayload(payload) {
-  if (!payload || typeof payload !== 'object') return;
-  const next = mergeSupplierPayload(readPriceOverridesPayload(), payload);
-  fs.mkdirSync(path.dirname(priceOverridesFile), { recursive: true });
-  fs.writeFileSync(priceOverridesFile, JSON.stringify(next, null, 2), 'utf8');
-}
-
 function supplierChangeKey(item, nameField) {
   const identityName = item?.[nameField] || item?.name || item?.item || item?.label;
   return [
@@ -761,44 +747,6 @@ function applySupplierPayload(payload) {
   })), 'name');
 }
 
-function readPendingSupplierPayload() {
-  if (!fs.existsSync(pendingSupplierPricesFile)) return {};
-  try {
-    return JSON.parse(fs.readFileSync(pendingSupplierPricesFile, 'utf8')) || {};
-  } catch (error) {
-    return {};
-  }
-}
-
-function mergeSupplierPayload(base, next) {
-  const merged = { ...(base || {}) };
-  [
-    'plates',
-    'paintings',
-    'paintingComponents',
-    'edges',
-    'extras',
-    'drawerComponents',
-    'hinges',
-    'hingeComponents',
-    'openingSystemComponents'
-  ].forEach((key) => {
-    const map = new Map();
-    [...(merged[key] || []), ...(next?.[key] || [])].forEach((item, index) => {
-      map.set(supplierChangeKey(item, key === 'plates' || key === 'edges' || key === 'paintings' || key === 'hinges' ? 'name' : 'item') || String(index), item);
-    });
-    const values = Array.from(map.values());
-    if (values.length) merged[key] = values;
-  });
-  if (next?.addMissingPlates || merged.addMissingPlates) merged.addMissingPlates = true;
-  return merged;
-}
-
-function loadPendingSupplierPrices() {
-  const pending = readPendingSupplierPayload();
-  applySupplierPayload(pending);
-}
-
 function supplierPricePayload() {
   return {
     rules: platePricingRules,
@@ -808,123 +756,10 @@ function supplierPricePayload() {
   };
 }
 
-async function runSupplierPriceScript(payloadPath) {
-  let stdout = '';
-  try {
-    ({ stdout } = await execFileAsync('powershell.exe', [
-      '-NoProfile', '-ExecutionPolicy', 'Bypass',
-      '-File', saveSupplierPricesScript,
-      '-WorkbookPath', workbookFile,
-      '-PayloadPath', payloadPath,
-      '-BackupDirectory', backupDirectory,
-      '-ComparisonWorkbookPath', workbookData.comparisonWorkbookPath?.() || ''
-    ], { timeout: 300000, windowsHide: true, maxBuffer: 1024 * 1024 * 4 }));
-  } catch (error) {
-    stdout = String(error.stdout || '');
-    const errorLines = stdout.trim().split(/\r?\n/).filter(Boolean);
-    try {
-      const result = JSON.parse(errorLines[errorLines.length - 1] || '{}');
-      if (result.error) throw new Error(result.error);
-    } catch (parsedError) {
-      if (parsedError.message && !parsedError.message.startsWith('Unexpected token')) throw parsedError;
-    }
-    const stderr = String(error.stderr || '').trim();
-    if (error.killed || error.signal === 'SIGTERM') {
-      throw new Error('O Excel demorou demasiado tempo a guardar. A operaÃ§Ã£o foi interrompida.');
-    }
-    throw new Error(stderr || error.message || 'O Excel falhou ao guardar os preÃ§os.');
-  }
-  const lines = stdout.trim().split(/\r?\n/).filter(Boolean);
-  const result = JSON.parse(lines[lines.length - 1] || '{}');
-  if (!result.ok) throw new Error(result.error || 'O Excel nÃ£o confirmou a gravaÃ§Ã£o.');
-  return result;
-}
-
-async function saveSupplierPricesToExcel(payload) {
-  assertWorkbookWritable(workbookFile);
-  const payloadPath = path.join(workDirectory, 'supplier-prices-' + Date.now() + '.json');
-  fs.mkdirSync(workDirectory, { recursive: true });
-  fs.writeFileSync(payloadPath, JSON.stringify(payload), 'utf8');
-  try {
-    return await runSupplierPriceScript(payloadPath);
-  } finally {
-    if (fs.existsSync(payloadPath)) fs.unlinkSync(payloadPath);
-  }
-}
-
-let supplierExcelSyncRunning = false;
-
-function queueSupplierPricesToExcel(payload) {
-  fs.mkdirSync(path.dirname(pendingSupplierPricesFile), { recursive: true });
-  fs.mkdirSync(workDirectory, { recursive: true });
-  const pending = mergeSupplierPayload(readPendingSupplierPayload(), payload);
-  fs.writeFileSync(pendingSupplierPricesFile, JSON.stringify(pending), 'utf8');
-  persistPriceOverridesPayload(payload);
-  applySupplierPayload(payload);
-
-  if (supplierExcelSyncRunning) return { queued: true, running: true };
-  supplierExcelSyncRunning = true;
-  const payloadPath = path.join(workDirectory, 'supplier-prices-' + Date.now() + '.json');
-  fs.writeFileSync(payloadPath, JSON.stringify(pending), 'utf8');
-  const child = execFile('powershell.exe', [
-    '-NoProfile', '-ExecutionPolicy', 'Bypass',
-    '-File', saveSupplierPricesScript,
-    '-WorkbookPath', workbookFile,
-    '-PayloadPath', payloadPath,
-    '-BackupDirectory', backupDirectory,
-    '-ComparisonWorkbookPath', workbookData.comparisonWorkbookPath?.() || ''
-  ], { timeout: 300000, windowsHide: true, maxBuffer: 1024 * 1024 * 4 }, (error, stdout) => {
-    supplierExcelSyncRunning = false;
-    if (fs.existsSync(payloadPath)) fs.unlinkSync(payloadPath);
-    if (error) return;
-    const lines = String(stdout || '').trim().split(/\r?\n/).filter(Boolean);
-    try {
-      const result = JSON.parse(lines[lines.length - 1] || '{}');
-      if (result.ok) {
-        if (fs.existsSync(pendingSupplierPricesFile)) fs.unlinkSync(pendingSupplierPricesFile);
-        workbookStamp = '';
-        refreshWorkbookData();
-      }
-    } catch (parseError) {
-      // Keep pending file; user can sync again later.
-    }
-  });
-  child.on('error', () => { supplierExcelSyncRunning = false; });
-  return { queued: true, running: false };
-}
-
-loadPriceOverrides();
-loadPendingSupplierPrices();
-
-function refreshWorkbookData() {
-  const nextStamp = dataStamp();
-  if (!nextStamp || nextStamp === workbookStamp) return false;
-
-  try {
-    delete require.cache[require.resolve('./workbook-data')];
-    workbookData = require('./workbook-data');
-    ({ catalog, lists, typePresets, enrichModules, calculateModulePrice } = workbookData);
-    workbookFile = workbookData.workbookPath;
-    workbookStamp = dataStamp();
-    loadPriceOverrides();
-    loadPendingSupplierPrices();
-    quoteSeed.source.workbookFile = workbookFile;
-    quoteSeed.source.present = true;
-    quoteSeed.lists = lists;
-    quoteSeed.typePresets = typePresets;
-    quoteSeed.catalog = catalog;
-    quoteSeed.modules = enrichModules(quoteSeed.modules);
-    return true;
-  } catch (error) {
-    console.error('NÃ£o foi possÃ­vel atualizar os dados do Excel:', error.message);
-    return false;
-  }
-}
-
 const quoteSeed = {
   source: {
-    workbookFile: 'Silwood_Calculadora_Orcamentos_Cozinhas.xlsm',
-    present: fs.existsSync(workbookFile),
+    storage: catalogStore.mode,
+    present: true,
     note: 'Dados e fluxo modelados a partir das folhas OrÃ§amento_Cozinhas e OrÃ§amento_Final.'
   },
   client: {
@@ -1351,7 +1186,7 @@ function quoteWarnings(modules, extras) {
   return warnings;
 }
 
-function calculateQuote(payload) {
+function calculateQuoteInternal(payload) {
   applyCatalogOverrides(payload.catalog);
   const client = payload.client || quoteSeed.client;
   const pricingMode = payload.pricingMode === 'reseller' ? 'reseller' : 'normal';
@@ -1410,13 +1245,20 @@ function calculateQuote(payload) {
   return { client, pricingMode, modules: moduleLines, extras: extraLines, totals: { moduleTotal, extrasTotal, costTotal, finalTotal, margin }, warnings: quoteWarnings(modules, extras) };
 }
 
+function calculateQuote(payload) {
+  const before = structuredClone(catalog);
+  try { return calculateQuoteInternal(payload); }
+  finally {
+    for (const key of Object.keys(catalog)) delete catalog[key];
+    Object.assign(catalog, before);
+  }
+}
+
 app.get('/api/bootstrap', (req, res) => {
-  refreshWorkbookData();
   res.json({ ...quoteSeed, quote: calculateQuote(quoteSeed) });
 });
 
 app.post('/api/calculate', (req, res) => {
-  refreshWorkbookData();
   const payload = req.body || quoteSeed;
   res.json(calculateQuote({
     ...payload,
@@ -1425,7 +1267,6 @@ app.post('/api/calculate', (req, res) => {
 });
 
 app.get('/api/supplier-prices', (req, res) => {
-  refreshWorkbookData();
   res.json(supplierPricePayload());
 });
 
@@ -1532,7 +1373,6 @@ app.patch('/api/users/:id', requireAdmin, async (req, res) => {
 });
 
 app.put('/api/supplier-prices', requireAdmin, async (req, res) => {
-  refreshWorkbookData();
   const changedKeys = [
     'plates',
     'paintings',
@@ -1548,36 +1388,32 @@ app.put('/api/supplier-prices', requireAdmin, async (req, res) => {
   if (!hasChanges) return res.status(400).json({ error: 'NÃ£o existem preÃ§os para guardar.' });
 
   try {
-    const excelResult = queueSupplierPricesToExcel(req.body || {});
-    res.json({ ...supplierPricePayload(), excel: excelResult });
+    const result = await saveSupplierPrices(req.body || {});
+    res.json({ ...supplierPricePayload(), saved: result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 app.post('/api/supplier-prices/plate', requireAdmin, async (req, res) => {
-  refreshWorkbookData();
   const plate = req.body?.plate || req.body;
   if (!plate || !plate.name) return res.status(400).json({ error: 'Indique o nome da madeira.' });
 
   try {
-    const excelResult = await saveSupplierPricesToExcel({ plates: [plate], addMissingPlates: true });
-    persistPriceOverridesPayload({ plates: [plate], addMissingPlates: true });
-    workbookStamp = '';
-    refreshWorkbookData();
-    res.json({ ...supplierPricePayload(), excel: excelResult });
+    const result = await saveSupplierPrices({ plates: [plate], addMissingPlates: true });
+    res.json({ ...supplierPricePayload(), saved: result });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 });
 
 if (require.main === module) {
-  app.listen(port, host, () => {
+  refreshCatalog().then(() => app.listen(port, host, () => {
     console.log('Silwood simulador ativo em http://localhost:' + port);
     localNetworkUrls().forEach((url) => {
       console.log('Acesso na rede: ' + url);
     });
-  });
+  })).catch(error => { console.error(error.message); process.exitCode = 1; });
 }
 
 module.exports = { app, calculateQuote };

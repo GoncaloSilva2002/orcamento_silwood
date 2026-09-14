@@ -4816,11 +4816,11 @@ async function addSupplierItem() {
   renderSupplierPrices();
   if (addedExtra) supplierPricesGrid.scrollTop = 0;
   if (false && saveButton) {
-    const excel = data.excel || {};
+    const excel = data.saved || {};
     const total = Number(excel.updated || 0) + Number(excel.updatedPaint || 0) + Number(excel.updatedEdges || 0) +
       Number(excel.updatedDrawers || 0) + Number(excel.updatedSystems || 0) + Number(excel.updatedExtras || 0) +
       Number(excel.insertedPlates || 0) + Number(excel.insertedPlateSuppliers || 0) + Number(excel.updatedComparison || 0);
-    sourceStatus.textContent = total ? 'Preços guardados no Excel' : 'Guardar terminado';
+    sourceStatus.textContent = total ? 'Preços guardados no catálogo' : 'Guardar terminado';
     saveButton.disabled = false;
     return;
   }
@@ -4828,17 +4828,17 @@ async function addSupplierItem() {
   renderFinal();
   calculate({ renderFinal: false }).catch(function (error) { sourceStatus.textContent = error.message; });
   if (addedPlate) {
-    sourceStatus.textContent = 'A guardar madeira no Excel...';
+    sourceStatus.textContent = 'A guardar madeira no catálogo...';
     try {
-      await saveSupplierPlateToExcel(addedPlate);
-      sourceStatus.textContent = 'Madeira adicionada e gravada no Excel.';
+      await saveSupplierPlate(addedPlate);
+      sourceStatus.textContent = 'Madeira adicionada e gravada no catálogo.';
     } catch (error) {
       trackSupplierChange('plates', addedPlate, addedPlate.name);
-      sourceStatus.textContent = 'Madeira adicionada na app, mas nao foi gravada no Excel: ' + error.message;
+      sourceStatus.textContent = 'Madeira adicionada na app, mas nao foi gravada no catálogo: ' + error.message;
     }
     return;
   }
-  sourceStatus.textContent = 'Item adicionado. Ainda não foi gravado no Excel.';
+  sourceStatus.textContent = 'Item adicionado. Ainda não foi gravado no catálogo.';
 }
 
 function readonlyPriceRow(search, name, supplier, reference, supplierPrice, cost, client, reseller, deleteType, deleteIndex) {
@@ -6121,14 +6121,14 @@ function renderSupplierPrices() {
   });
 }
 
-async function saveSupplierPlateToExcel(item) {
+async function saveSupplierPlate(item) {
   const response = await fetch('/api/supplier-prices/plate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ plate: item })
   });
   const data = await readJson(response, {});
-  if (!response.ok) throw new Error(data.error || 'Nao foi possivel gravar a madeira no Excel.');
+  if (!response.ok) throw new Error(data.error || 'Nao foi possivel gravar a madeira no catálogo.');
   state.pricingRules = data.rules;
   state.supplierPrices = data.plates;
   normalizeAllPlateNames();
@@ -6146,11 +6146,11 @@ async function saveSupplierPlateToExcel(item) {
   }
   renderSupplierPrices();
   if (false && saveButton) {
-    const excel = data.excel || {};
+    const excel = data.saved || {};
     const total = Number(excel.updated || 0) + Number(excel.updatedPaint || 0) + Number(excel.updatedEdges || 0) +
       Number(excel.updatedDrawers || 0) + Number(excel.updatedSystems || 0) + Number(excel.updatedExtras || 0) +
       Number(excel.insertedPlates || 0) + Number(excel.insertedPlateSuppliers || 0) + Number(excel.updatedComparison || 0);
-    sourceStatus.textContent = total ? 'Preços guardados no Excel' : 'Guardar terminado';
+    sourceStatus.textContent = total ? 'Preços guardados no catálogo' : 'Guardar terminado';
     saveButton.disabled = false;
     return;
   }
@@ -6178,7 +6178,7 @@ async function saveSupplierPrices() {
     return;
   }
   if (saveButton) saveButton.disabled = true;
-  sourceStatus.textContent = 'A guardar preços no Excel...';
+  sourceStatus.textContent = 'A guardar preços no catálogo...';
   try {
     const payload = supplierDirtyPayload();
     if (Array.isArray(payload.plates) && payload.plates.length) payload.addMissingPlates = true;
@@ -6210,7 +6210,7 @@ async function saveSupplierPrices() {
   }
     applySupplierPayloadChanges(payload);
     renderSupplierPrices();
-    const excel = data.excel || {};
+    const excel = data.saved || {};
     const total = Number(excel.updated || 0) + Number(excel.updatedPaint || 0) + Number(excel.updatedEdges || 0) +
       Number(excel.updatedDrawers || 0) + Number(excel.updatedSystems || 0) + Number(excel.updatedExtras || 0) +
       Number(excel.insertedPlates || 0) + Number(excel.insertedPlateSuppliers || 0) + Number(excel.updatedComparison || 0);
@@ -6219,8 +6219,8 @@ async function saveSupplierPrices() {
     renderFinal();
     await calculate({ renderFinal: false });
     sourceStatus.textContent = excel.queued
-      ? 'Preços guardados na app. Excel a sincronizar em segundo plano.'
-      : (total ? 'Preços guardados no Excel' : 'Guardar terminado');
+      ? 'Preços guardados no catálogo.'
+      : (total ? 'Preços guardados no catálogo' : 'Guardar terminado');
   } finally {
     if (saveButton) saveButton.disabled = false;
   }
@@ -6332,7 +6332,7 @@ async function boot() {
   state.modules = [];
   state.extras = [];
   state.pricingMode = 'normal';
-  sourceStatus.textContent = data.source.present ? 'Novo orçamento vazio' : 'Base Excel não encontrada; novo orçamento vazio';
+  sourceStatus.textContent = data.source.present ? 'Novo orçamento vazio' : 'Catálogo não encontrada; novo orçamento vazio';
   const supplierResponse = await fetch('/api/supplier-prices');
   if (!supplierResponse.ok) throw new Error('Não foi possível carregar os preços dos fornecedores.');
   const supplierData = await readJson(supplierResponse, {});

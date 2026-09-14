@@ -8,7 +8,9 @@
     "start": "node src/server.js",
     "dev": "node src/server.js",
     "check": "node --check src/server.js && node --check public/app.js",
-    "build:exe": "pkg . --targets node18-win-x64 --output dist/silwood-orcamentos.exe"
+    "build:exe": "pkg . --targets node18-win-x64 --output dist/silwood-orcamentos.exe",
+    "migrate:supabase": "node scripts/import-supabase.js",
+    "test": "node --test tests/*.test.js"
   },
   "bin": "src/server.js",
   "pkg": {
@@ -17,8 +19,7 @@
     ]
   },
   "dependencies": {
-    "express": "^4.19.2",
-    "xlsx": "^0.18.5"
+    "express": "^4.19.2"
   },
   "devDependencies": {
     "pkg": "^5.8.1"
