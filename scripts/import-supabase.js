@@ -18,6 +18,6 @@ async function main() {
   const saved = await store.read();
   const assert = require('node:assert/strict');
   assert.deepEqual(saved.data, data);
-  console.log('Catálogo importado e verificado. Configura CATALOG_STORAGE=supabase e reinicia a aplicação.');
+  console.log('Catalogo separado importado e verificado. Configura CATALOG_STORAGE=supabase e reinicia a aplicacao.');
 }
 main().catch(error => { console.error(error.message); process.exitCode = 1; });

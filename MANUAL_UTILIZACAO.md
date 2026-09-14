@@ -330,7 +330,7 @@ Depois de alterar preços, clicar em:
 Guardar preços
 ```
 
-A app guarda primeiro na própria app e sincroniza depois com o Excel quando possível.
+A app guarda os preços diretamente na base de dados do Supabase.
 
 ## 12. Preços automáticos e manuais
 
@@ -351,7 +351,7 @@ Auto
 ## 13. Cuidados importantes
 
 - Não fechar o PowerShell enquanto estiver a usar a app.
-- Se o Excel estiver aberto e a app não conseguir guardar, fechar o Excel e tentar novamente.
+- Se a app não conseguir guardar preços, confirmar a ligação ao Supabase e tentar novamente.
 - Usar **Guardar no histórico** quando o orçamento estiver pronto.
 - Usar **Novo orçamento** apenas quando quiser começar uma obra nova.
 - Alterações de preços devem ser feitas em modo administrador.
@@ -369,4 +369,3 @@ Fluxo recomendado:
 6. Confirmar totais.
 7. Guardar no histórico.
 8. Imprimir ou guardar PDF.
-

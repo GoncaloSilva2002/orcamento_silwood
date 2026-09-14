@@ -207,38 +207,47 @@ async function loadSession() {
 async function loginAdmin() {
   const username = loginUser ? loginUser.value.trim() : '';
   const password = loginPassword ? loginPassword.value : '';
+  if (loginButton) {
+    loginButton.disabled = true;
+    loginButton.textContent = 'A entrar...';
+  }
   setLoginError('');
-  const response = await fetch('/api/login', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ username, password })
-  });
-  const data = await readJson(response, {});
-  if (!response.ok) {
-    const message = response.status === 401
-      ? 'Utilizador ou palavra-passe incorretos.'
-      : (data.error || 'Não foi possível iniciar sessão.');
-    setLoginError(message);
-    throw new Error(message);
+  try {
+    const response = await fetch('/api/login', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ username, password })
+    });
+    const data = await readJson(response, {});
+    if (!response.ok) {
+      const message = data.error || (response.status === 401
+        ? 'Utilizador ou palavra-passe incorretos.'
+        : 'Não foi possível iniciar sessão.');
+      setLoginError(message);
+      throw new Error(message);
+    }
+    state.isAdmin = data.admin === true;
+    state.isAuthenticated = data.authenticated === true;
+    enterApp();
+    state.userRole = data.role || (state.isAdmin ? 'admin' : 'guest');
+    state.userName = data.name || username;
+    state.usesSupabase = data.supabase === true;
+    if (loginPassword) loginPassword.value = '';
+    updateAccessUi();
+    sourceStatus.textContent = canManagePrices() ? 'Modo administrador ativo' : 'Sessao iniciada';
+    Promise.resolve()
+      .then(function () { return loadQuoteHistoryList(); })
+      .then(function () {
+        if (visualView && !visualView.hidden) return showView('visual', state.pricingMode, false);
+        return showView('quote', state.pricingMode, true);
+      })
+      .catch(function (error) { sourceStatus.textContent = error.message; });
+  } finally {
+    if (loginButton) {
+      loginButton.disabled = false;
+      loginButton.textContent = 'Entrar';
+    }
   }
-  state.isAdmin = data.admin === true;
-  state.isAuthenticated = data.authenticated === true;
-  enterApp();
-  state.userRole = data.role || (state.isAdmin ? 'admin' : 'guest');
-  state.userName = data.name || username;
-  state.usesSupabase = data.supabase === true;
-  if (loginPassword) loginPassword.value = '';
-  updateAccessUi();
-  await loadQuoteHistoryList();
-  // O login altera permissões e conteúdo disponível. Reativa a vista atual
-  // imediatamente, tal como aconteceria ao clicar numa aba, para que a app
-  // fique pronta sem exigir uma navegação manual.
-  if (visualView && !visualView.hidden) {
-    await showView('visual', state.pricingMode, false);
-  } else {
-    await showView('quote', state.pricingMode, true);
-  }
-  sourceStatus.textContent = canManagePrices() ? 'Modo administrador ativo' : 'Sessao iniciada';
 }
 
 async function logoutAdmin() {
@@ -413,9 +422,7 @@ function supplierDirtyPayload() {
   const payload = {};
   Object.keys(supplierDirtyChanges).forEach(function (type) {
     const values = dedupeSupplierItems(type, Array.from(supplierDirtyChanges[type].values()).map(function (item) {
-      const copy = clone(item);
-      delete copy.__dirtyIndex;
-      return copy;
+      return clone(item);
     }));
     if (values.length) payload[type] = values;
   });
@@ -1477,7 +1484,9 @@ function mergeCalculationPayload(target, source) {
   Object.keys(supplierDirtyChanges).concat(['doorSystems']).forEach(function (type) {
     if (!Array.isArray(source[type]) || !source[type].length) return;
     const current = Array.isArray(target[type]) ? target[type] : [];
-    target[type] = dedupeSupplierItems(type, current.concat(source[type].map(clone)));
+    target[type] = dedupeSupplierItems(type, current.concat(source[type].filter(function (item) {
+      return item && item.__delete !== true;
+    }).map(clone)));
   });
   if (source.addMissingPlates || target.addMissingPlates) target.addMissingPlates = true;
   return target;
@@ -3299,6 +3308,7 @@ function deleteSupplierItem(type, index) {
   if (!item) return;
   const label = item.name || item.item || item.label || 'este item';
   if (!window.confirm('Tens a certeza que pretendes eliminar "' + label + '" da lista?')) return;
+  trackSupplierChange(type, { __delete: true, __dirtyIndex: Number(index) }, Number(index));
   persistSupplierRemoval(type, item);
   if (type === 'plates') {
     persistSupplierRemoval('plates', item);
@@ -4030,6 +4040,11 @@ function findSupplierDraftTarget(list, item, nameField) {
 function mergeSupplierDraftList(list, items, nameField) {
   if (!Array.isArray(list) || !Array.isArray(items)) return;
   items.forEach(function (item) {
+    if (item && item.__delete === true) {
+      const deleteIndex = Number(item.__dirtyIndex);
+      if (Number.isInteger(deleteIndex) && deleteIndex >= 0 && deleteIndex < list.length) list.splice(deleteIndex, 1);
+      return;
+    }
     const copy = clone(item);
     normalizeKnownDrawerComponentName(copy);
     if (nameField === 'name') normalizePlateItemName(copy);
@@ -4117,20 +4132,21 @@ function applySupplierDraftChanges() {
 
 function applySupplierPayloadChanges(payload) {
   if (!payload || typeof payload !== 'object') return;
-  (payload.extras || []).forEach(function (item) { item.group = normalizeExtraGroupName(item.group); });
-  mergeSupplierDraftList(state.supplierPrices, payload.plates, 'name');
-  mergeSupplierDraftList(state.catalog.plates, payload.plates, 'name');
-  mergeSupplierDraftList(state.catalog.paintings, payload.paintings, 'name');
-  mergeSupplierDraftList(state.catalog.paintingComponents, payload.paintingComponents, 'item');
-  mergeSupplierDraftList(state.catalog.edges, payload.edges, 'name');
-  mergeSupplierDraftList(state.catalog.extras, payload.extras, 'item');
-  mergeSupplierDraftList(state.catalog.drawerComponents, payload.drawerComponents, 'item');
-  mergeSupplierDraftList(state.catalog.hinges, payload.hinges, 'name');
-  mergeSupplierDraftList(state.catalog.hingeComponents, payload.hingeComponents, 'item');
-  mergeSupplierDraftList(state.catalog.openingSystemComponents, (payload.openingSystemComponents || []).filter(function (item) {
+  const activeItems = function (items) { return (items || []).filter(function (item) { return item && item.__delete !== true; }); };
+  activeItems(payload.extras).forEach(function (item) { item.group = normalizeExtraGroupName(item.group); });
+  mergeSupplierDraftList(state.supplierPrices, activeItems(payload.plates), 'name');
+  mergeSupplierDraftList(state.catalog.plates, activeItems(payload.plates), 'name');
+  mergeSupplierDraftList(state.catalog.paintings, activeItems(payload.paintings), 'name');
+  mergeSupplierDraftList(state.catalog.paintingComponents, activeItems(payload.paintingComponents), 'item');
+  mergeSupplierDraftList(state.catalog.edges, activeItems(payload.edges), 'name');
+  mergeSupplierDraftList(state.catalog.extras, activeItems(payload.extras), 'item');
+  mergeSupplierDraftList(state.catalog.drawerComponents, activeItems(payload.drawerComponents), 'item');
+  mergeSupplierDraftList(state.catalog.hinges, activeItems(payload.hinges), 'name');
+  mergeSupplierDraftList(state.catalog.hingeComponents, activeItems(payload.hingeComponents), 'item');
+  mergeSupplierDraftList(state.catalog.openingSystemComponents, activeItems(payload.openingSystemComponents).filter(function (item) {
     return !item.userAddedSummary;
   }), 'item');
-  mergeSupplierDraftList(state.catalog.doorSystems, (payload.openingSystemComponents || []).filter(function (item) {
+  mergeSupplierDraftList(state.catalog.doorSystems, activeItems(payload.openingSystemComponents).filter(function (item) {
     return item.userAddedSummary || item.name;
   }).map(function (item) {
     return {
@@ -5690,7 +5706,7 @@ function renderSupplierPrices() {
   dedupeSupplierStores();
   const rows = state.supplierPrices.map(function (item, index) {
     return '<tr data-supplier-search="' + esc([item.name, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
-      '<td>' + esc(item.name) + '</td>' +
+      '<td><input value="' + esc(item.name) + '" data-supplier-index="' + index + '" data-supplier-field="name"></td>' +
       '<td><input value="' + esc(item.supplier) + '" data-supplier-index="' + index + '" data-supplier-field="supplier"></td>' +
       '<td><input value="' + esc(item.reference) + '" data-supplier-index="' + index + '" data-supplier-field="reference"></td>' +
       '<td><input type="number" min="0" step="0.01" value="' + supplierNumber(item.supplierPrice) + '" data-supplier-index="' + index + '" data-supplier-field="supplierPrice"></td>' +

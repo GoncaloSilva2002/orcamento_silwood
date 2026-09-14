@@ -16,7 +16,7 @@ Executa npm install e npm start. Abre http://localhost:3000. Configura as creden
 
 A importação usa data/catalog-seed.json, já extraído do Excel do projeto com os preços guardados e alterações pendentes existentes na migração. Se existir data/catalog-local.json, importa esse catálogo atualizado. A importação recusa substituir um catálogo que já exista.
 
-A tabela app_catalog guarda um documento JSONB com as categorias, receitas, listas, modelos de módulos e preços de pés. As categorias são preservadas juntas para gravar uma alteração de forma atómica. Não existe uma tabela por folha do Excel. A revisão impede substituir silenciosamente alterações simultâneas de outro servidor.
+O catálogo fica separado por tabelas no Supabase: placas, orlas, extras, ferragens, sistemas, pinturas, receitas e componentes. A tabela app_catalog_meta guarda apenas listas auxiliares, modelos de módulos, preços de pés e a revisão. A aplicação junta essas tabelas em memória antes de calcular os orçamentos.
 
 A aplicação lê o catálogo do Supabase antes das operações de consulta, cálculo e gravação. As gravações passam pela autorização de administrador no servidor. Se a base de dados estiver indisponível, apresenta um erro e não grava silenciosamente numa cópia local. A chave service_role fica exclusivamente no servidor.
 

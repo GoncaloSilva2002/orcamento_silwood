@@ -21,8 +21,6 @@ Essa pasta contem:
 - `silwood-orcamentos.exe`
 - `public\`
 - `data\`
-- `scripts\`
-- `config\`
 - `.env.example`
 
 ## Instalar no servidor
@@ -62,6 +60,7 @@ Exemplo:
 PORT=3000
 HOST=0.0.0.0
 NODE_ENV=production
+CATALOG_STORAGE=supabase
 
 SUPABASE_URL=https://teu-projeto.supabase.co
 SUPABASE_ANON_KEY=publishable-key

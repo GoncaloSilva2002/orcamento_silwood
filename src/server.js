@@ -202,12 +202,15 @@ async function supabaseJson(pathname, options = {}) {
   const response = await fetch(supabaseUrl + pathname, {
     method: options.method || 'GET',
     headers,
-    body: options.body === undefined ? undefined : JSON.stringify(options.body)
+    body: options.body === undefined ? undefined : JSON.stringify(options.body),
+    signal: AbortSignal.timeout(Number(options.timeoutMs || 10000))
   });
   const data = await response.json().catch(() => ({}));
   if (!response.ok) {
     const message = data.error_description || data.msg || data.message || 'Erro de autenticaÃ§Ã£o no Supabase.';
-    throw new Error(message);
+    const error = new Error(message);
+    error.status = response.status;
+    throw error;
   }
   return data;
 }
@@ -621,6 +624,7 @@ function wardrobeRodLine(extra, catalogItem, baseClient, baseCost) {
 }
 
 function updatePlatePrices(plate, changes) {
+  if (typeof changes.name === 'string') plate.name = changes.name.trim();
   if (typeof changes.supplier === 'string') plate.supplier = changes.supplier.trim();
   if (typeof changes.reference === 'string') plate.reference = changes.reference.trim();
   if (Number.isFinite(Number(changes.supplierPrice))) plate.supplierPrice = Math.max(0, Number(changes.supplierPrice));
@@ -633,6 +637,21 @@ function updatePlatePrices(plate, changes) {
   plate.reseller = plate.manualReseller === true && Number.isFinite(Number(changes.reseller))
     ? Number(changes.reseller)
     : plate.cost * platePricingRules.resellerMultiplier;
+}
+
+function cleanSupplierItem(item) {
+  const next = { ...item };
+  delete next.__dirtyIndex;
+  delete next.__delete;
+  return next;
+}
+
+function removeCatalogItems(list, items) {
+  if (!Array.isArray(list) || !Array.isArray(items)) return;
+  items.forEach((item) => {
+    const index = Number(item?.__dirtyIndex);
+    if (Number.isInteger(index) && index >= 0 && index < list.length) list.splice(index, 1);
+  });
 }
 
 function supplierChangeKey(item, nameField) {
@@ -650,12 +669,16 @@ function supplierChangeKey(item, nameField) {
 function upsertCatalogItems(list, items, nameField) {
   if (!Array.isArray(list) || !Array.isArray(items)) return;
   items.forEach((item) => {
+    if (item?.__delete === true) return;
+    const index = Number(item?.__dirtyIndex);
     const key = supplierChangeKey(item, nameField);
-    const target = list.find(existing => supplierChangeKey(existing, nameField) === key);
+    const target = Number.isInteger(index) && index >= 0 && index < list.length
+      ? list[index]
+      : list.find(existing => supplierChangeKey(existing, nameField) === key);
     if (target) {
-      Object.assign(target, item);
+      Object.assign(target, cleanSupplierItem(item));
     } else {
-      list.push({ ...item });
+      list.push(cleanSupplierItem(item));
     }
   });
   dedupeCatalogItems(list, nameField);
@@ -690,16 +713,30 @@ function upsertCatalogItemsByName(list, items, nameField) {
 
 function applySupplierPayload(payload) {
   if (!payload || typeof payload !== 'object') return;
+  removeCatalogItems(catalog.plates, (payload.plates || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.paintings, (payload.paintings || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.paintingComponents, (payload.paintingComponents || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.edges, (payload.edges || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.extras, (payload.extras || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.hinges, (payload.hinges || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.drawerComponents, (payload.drawerComponents || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.hingeComponents, (payload.hingeComponents || []).filter(item => item?.__delete === true));
+  removeCatalogItems(catalog.openingSystemComponents, (payload.openingSystemComponents || []).filter(item => item?.__delete === true));
   if (Array.isArray(payload.plates)) {
     payload.plates.forEach((change) => {
+      if (change?.__delete === true) return;
+      const index = Number(change?.__dirtyIndex);
       const key = supplierChangeKey(change, 'name');
-      const plate = catalog.plates.find(item => supplierChangeKey(item, 'name') === key);
+      const plate = Number.isInteger(index) && index >= 0 && index < catalog.plates.length
+        ? catalog.plates[index]
+        : catalog.plates.find(item => supplierChangeKey(item, 'name') === key);
+      const cleanChange = cleanSupplierItem(change);
       if (plate) {
-        Object.assign(plate, change);
-        updatePlatePrices(plate, change);
+        Object.assign(plate, cleanChange);
+        updatePlatePrices(plate, cleanChange);
       } else {
-        const next = { ...change };
-        updatePlatePrices(next, change);
+        const next = { ...cleanChange };
+        updatePlatePrices(next, cleanChange);
         catalog.plates.push(next);
       }
     });
@@ -1296,7 +1333,8 @@ app.post('/api/login', async (req, res) => {
     res.setHeader('Set-Cookie', sessionCookie(token, sessionMaxAgeSeconds));
     return res.json(publicSession(session));
   } catch (error) {
-    return res.status(401).json({ error: error.message || 'Credenciais invalidas.' });
+    const status = error.status === 400 || error.status === 401 ? 401 : 503;
+    return res.status(status).json({ error: error.message || 'Credenciais invalidas.' });
   }
 });
 

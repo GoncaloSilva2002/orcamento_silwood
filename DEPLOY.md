@@ -47,7 +47,7 @@ Isto cria:
 
 - `profiles`, com `role` e `active`.
 - `quote_history`, associado ao utilizador dono do orcamento.
-- `app_catalog`, com o catálogo e a revisão das alterações.
+- tabelas separadas do catálogo, como `catalog_plates`, `catalog_edges`, `catalog_extras` e as tabelas de receitas/componentes.
 
 Depois executa `npm run migrate:supabase` uma vez. A importação recusa substituir dados existentes.
 
@@ -103,14 +103,14 @@ Depois ativa HTTPS com Certbot ou pelo painel do alojamento.
 
 ## Dados que precisam de backup
 
-Faz backup regular destas pastas/ficheiros:
+Faz backup regular do Supabase e destes ficheiros locais:
 
 ```text
 data/
 .env
 ```
 
-O historico dos orcamentos fica no Supabase.
+O historico dos orcamentos e o catálogo ficam no Supabase.
 
 ## Primeiro arranque
 

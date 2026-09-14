@@ -30,7 +30,7 @@ test('Supabase failures and write conflicts are reported without local fallback'
   try {
     const store = createCatalogStore({mode:'supabase',url:'https://example.supabase.co',key:'test'});
     global.fetch = async () => new Response('[]',{status:200});
-    await assert.rejects(store.read(), /não importado/);
+    await assert.rejects(store.read(), /nao importado/);
     await assert.rejects(store.save(seed,1), /outro utilizador/);
     global.fetch = async () => new Response('secret remote error',{status:500});
     await assert.rejects(store.read(), error => error.message.includes('HTTP 500') && !error.message.includes('secret'));
@@ -74,8 +74,17 @@ test('application works without Excel: bootstrap, calculate, authorization, save
     const loaded = await (await request('/api/bootstrap')).json();
     assert.equal(loaded.catalog.plates[0].supplierPrice,123.45);
     assert.equal(loaded.catalog.plates[0].cost,125.47);
+    const renamed = {...loaded.catalog.plates[0],__dirtyIndex:0,name:'Placa teste editada'};
+    const deletedName = loaded.catalog.plates[1].name;
+    const editSave = await request('/api/supplier-prices','PUT',{plates:[renamed,{__dirtyIndex:1,__delete:true}]},cookie);
+    assert.equal(editSave.status,200,await editSave.clone().text());
+    const edited = await (await request('/api/bootstrap')).json();
+    assert.equal(edited.catalog.plates[0].name,'Placa teste editada');
+    assert.equal(edited.catalog.plates.filter(item => item.name === 'Placa teste editada').length,1);
+    assert.equal(edited.catalog.plates.some(item => item.name === deletedName),false);
+    assert.equal(edited.catalog.plates.length,seed.catalog.plates.length - 1);
     const disk = await createCatalogStore({mode:'local',file:process.env.CATALOG_LOCAL_FILE}).read();
-    assert.equal(disk.data.catalog.plates[0].supplierPrice,123.45);
+    assert.equal(disk.data.catalog.plates[0].name,'Placa teste editada');
   } finally {
     Module._load = originalLoad;
     fs.readFileSync = originalRead;
