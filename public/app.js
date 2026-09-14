@@ -3823,7 +3823,7 @@ function normalizePlateItemName(item) {
   if (item.name) item.name = cleanMaterialName(String(item.name).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167'));
   if (item.reference) item.reference = cleanMaterialName(String(item.reference).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167').replace(/\bDO\s*-\s*/gi, 'SONAE '));
   const canonical = canonicalPlateNameFromReference([item.reference, item.name].filter(Boolean).join(' '));
-  if (canonical) item.name = expandPlateFinishName(cleanMaterialName(canonical));
+  if (canonical && !item.compareGroup) item.name = expandPlateFinishName(cleanMaterialName(canonical));
   if (item.reference) item.reference = expandPlateFinishName(cleanMaterialName(item.reference));
   return item;
 }
@@ -5468,7 +5468,6 @@ function plateComparatorGroupsHtml() {
     grouped.get(key).push({ item, index });
   });
   return Array.from(grouped.entries()).map(function ([key, entries]) {
-    entries = dedupePlateMarketEntries(entries);
     entries.sort(function (a, b) {
       return String(a.item.supplier || '').localeCompare(String(b.item.supplier || ''), 'pt', { sensitivity: 'base' }) ||
         String(a.item.reference || '').localeCompare(String(b.item.reference || ''), 'pt', { sensitivity: 'base', numeric: true });
@@ -5849,8 +5848,11 @@ function renderSupplierPrices() {
       const key = event.target.dataset.plateGroupName;
       const name = String(event.target.value || '').trim();
       if (!key || !name) return;
-      state.supplierPrices.forEach(function (item, index) {
-        if (plateGroupKey(item) !== key) return;
+      const indexes = state.supplierPrices.map(function (item, index) {
+        return plateGroupKey(item) === key ? index : -1;
+      }).filter(function (index) { return index >= 0; });
+      indexes.forEach(function (index) {
+        const item = state.supplierPrices[index];
         item.compareGroup = name;
         trackSupplierChange('plates', item, index);
       });
@@ -5882,6 +5884,7 @@ function renderSupplierPrices() {
       const targetName = group.dataset.plateDropName || '';
       if (!item || !targetName) return;
       item.compareGroup = targetName;
+      item.name = targetName;
       trackSupplierChange('plates', item, index);
       plateDuplicateReferenceKeysCache = null;
       renderSupplierPrices();
@@ -5919,7 +5922,7 @@ function renderSupplierPrices() {
       const item = state.supplierPrices[index];
       const before = clone(item);
       item[field] = field === 'supplierPrice' ? num(event.target.value) : event.target.value;
-      if (field === 'reference' && item.reference && (item.userAdded || item.comparisonSource === 'PLACAS_26')) {
+      if (field === 'reference' && item.reference && !item.compareGroup && (item.userAdded || item.comparisonSource === 'PLACAS_26')) {
         item.name = canonicalPlateNameFromReference([item.reference, item.name].filter(Boolean).join(' ')) || String(item.reference).trim();
       }
       calculateSupplierRow(item);
