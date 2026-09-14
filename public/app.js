@@ -3850,6 +3850,7 @@ function duplicatePlateReferenceKeys() {
 }
 
 function plateGroupKey(item) {
+  if (item && item.compareGroupKey) return item.compareGroupKey;
   if (item && item.compareGroup) return 'MANUAL|' + comparableText(item.compareGroup);
   const codeThicknessKey = plateCodeThicknessKey(item);
   if (codeThicknessKey) {
@@ -5854,6 +5855,7 @@ function renderSupplierPrices() {
       indexes.forEach(function (index) {
         const item = state.supplierPrices[index];
         item.compareGroup = name;
+        item.compareGroupKey = key;
         trackSupplierChange('plates', item, index);
       });
       plateDuplicateReferenceKeysCache = null;
@@ -5882,9 +5884,10 @@ function renderSupplierPrices() {
       const index = Number(event.dataTransfer.getData('text/plain'));
       const item = state.supplierPrices[index];
       const targetName = group.dataset.plateDropName || '';
+      const targetKey = group.dataset.plateDropKey || '';
       if (!item || !targetName) return;
       item.compareGroup = targetName;
-      item.name = targetName;
+      item.compareGroupKey = targetKey;
       trackSupplierChange('plates', item, index);
       plateDuplicateReferenceKeysCache = null;
       renderSupplierPrices();
