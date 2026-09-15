@@ -3,6 +3,7 @@ const path = require('path');
 const crypto = require('crypto');
 const os = require('os');
 const express = require('express');
+const ledTransformers = require('../public/led-transformers');
 
 const rootDir = path.resolve(__dirname, '..');
 
@@ -112,14 +113,14 @@ function saveSupplierPrices(payload) {
   return operation;
 }
 
-function deleteSupplierCatalogItem(type, index) {
+function deleteSupplierCatalogItem(type, index, catalogId) {
   const payload = {};
   if (!['plates', 'paintings', 'paintingComponents', 'edges', 'extras', 'drawerComponents', 'hinges', 'hingeComponents', 'openingSystemComponents'].includes(type)) {
     throw new Error('Tipo de material invalido.');
   }
   const itemIndex = Number(index);
   if (!Number.isInteger(itemIndex) || itemIndex < 0) throw new Error('Indice do material invalido.');
-  payload[type] = [{ __dirtyIndex: itemIndex, __delete: true }];
+  payload[type] = [{ catalogId, __dirtyIndex: itemIndex, __delete: true }];
   return saveSupplierPrices(payload);
 }
 const platePricingRules = { labor: 2.02, clientMultiplier: 3, resellerMultiplier: 1.4 };
@@ -660,7 +661,7 @@ function cleanSupplierItem(item) {
 function removeCatalogItems(list, items) {
   if (!Array.isArray(list) || !Array.isArray(items)) return;
   items.forEach((item) => {
-    const index = Number(item?.__dirtyIndex);
+    const index = item?.catalogId ? list.findIndex(existing => existing.catalogId === item.catalogId) : Number(item?.__dirtyIndex);
     if (Number.isInteger(index) && index >= 0 && index < list.length) list.splice(index, 1);
   });
 }
@@ -677,19 +678,31 @@ function supplierChangeKey(item, nameField) {
   ].map(comparableText).filter(Boolean).join('|');
 }
 
+function findSavedSupplierItem(list, item, nameField) {
+  const identified = list.find(existing => existing.catalogId === item.catalogId);
+  if (identified) return identified;
+  // Old browser drafts can refer to an ID replaced during catalogue migration.
+  // Reconcile only one exact identity; never fall back to a shifted row index.
+  const key = supplierChangeKey(item, nameField);
+  const matches = list.filter(existing => supplierChangeKey(existing, nameField) === key);
+  if (matches.length === 1) return matches[0];
+  throw new Error('Material nao encontrado: ' + (item.name || item.item || item.reference || item.catalogId) + '. Atualiza a pagina antes de guardar.');
+}
+
 function upsertCatalogItems(list, items, nameField) {
   if (!Array.isArray(list) || !Array.isArray(items)) return;
   items.forEach((item) => {
     if (item?.__delete === true) return;
     const index = Number(item?.__dirtyIndex);
     const key = supplierChangeKey(item, nameField);
-    const target = Number.isInteger(index) && index >= 0 && index < list.length
+    const target = item.catalogId ? findSavedSupplierItem(list, item, nameField) : Number.isInteger(index) && index >= 0 && index < list.length
       ? list[index]
       : list.find(existing => supplierChangeKey(existing, nameField) === key);
     if (target) {
-      Object.assign(target, cleanSupplierItem(item));
+      Object.assign(target, cleanSupplierItem(item), { catalogId: target.catalogId });
     } else {
-      list.push(cleanSupplierItem(item));
+      if (item.catalogId) throw new Error('Material nao encontrado. Atualiza a pagina antes de guardar.');
+      list.push({ ...cleanSupplierItem(item), catalogId: crypto.randomUUID() });
     }
   });
   dedupeCatalogItems(list, nameField);
@@ -699,7 +712,7 @@ function dedupeCatalogItems(list, nameField) {
   if (!Array.isArray(list)) return;
   const seen = new Map();
   for (let index = list.length - 1; index >= 0; index -= 1) {
-    const key = supplierChangeKey(list[index], nameField);
+    const key = list[index].catalogId || supplierChangeKey(list[index], nameField);
     if (!key) continue;
     if (seen.has(key)) {
       list.splice(index, 1);
@@ -738,17 +751,20 @@ function applySupplierPayload(payload) {
       if (change?.__delete === true) return;
       const index = Number(change?.__dirtyIndex);
       const key = supplierChangeKey(change, 'name');
-      const plate = Number.isInteger(index) && index >= 0 && index < catalog.plates.length
+      const plate = change.catalogId ? findSavedSupplierItem(catalog.plates, change, 'name') : Number.isInteger(index) && index >= 0 && index < catalog.plates.length
         ? catalog.plates[index]
         : catalog.plates.find(item => supplierChangeKey(item, 'name') === key);
       const cleanChange = cleanSupplierItem(change);
       if (plate) {
-        Object.assign(plate, cleanChange);
+        Object.assign(plate, cleanChange, { catalogId: plate.catalogId });
         updatePlatePrices(plate, cleanChange);
       } else if (payload.addMissingPlates === true) {
-        const next = { ...cleanChange };
+        if (change.catalogId) throw new Error('Material nao encontrado. Atualiza a pagina antes de guardar.');
+        const next = { ...cleanChange, catalogId: crypto.randomUUID() };
         updatePlatePrices(next, cleanChange);
         catalog.plates.push(next);
+      } else if (change.catalogId) {
+        throw new Error('Material nao encontrado. Atualiza a pagina antes de guardar.');
       }
     });
   }
@@ -757,6 +773,15 @@ function applySupplierPayload(payload) {
   upsertCatalogItems(catalog.paintingComponents, payload.paintingComponents, 'item');
   upsertCatalogItems(catalog.edges, payload.edges, 'name');
   upsertCatalogItems(catalog.extras, payload.extras, 'item');
+  catalog.extras.forEach(item => {
+    if (normalizeExtraGroupName(item.group) === 'Puxadores' && item.priceUnit === 'cm') {
+      item.cost = 0;
+      item.supplierPrice = 0;
+      item.manualClient = true;
+      item.reseller = item.client;
+      item.manualReseller = true;
+    }
+  });
   upsertCatalogItems(catalog.hinges, (payload.hinges || []).filter(item => !badHingeSummary(item)), 'name');
   upsertCatalogItemsByName(catalog.doorSystems, (payload.extras || [])
     .filter(item => comparableText(item.group) === comparableText('Sistema de abertura de portas') || comparableText(item.group) === comparableText('Sistema de abertura'))
@@ -798,9 +823,7 @@ function applySupplierPayload(payload) {
 function supplierPricePayload() {
   return {
     rules: platePricingRules,
-    plates: catalog.plates.map(({ name, supplier, reference, supplierPrice, cost, client, reseller, manualClient, manualReseller, comparisonKey, comparisonSource, comparisonRow, comparisonColumn, priceKey }) => ({
-      name, supplier, reference, supplierPrice, cost, client, reseller, manualClient, manualReseller, comparisonKey, comparisonSource, comparisonRow, comparisonColumn, priceKey
-    }))
+    plates: catalog.plates.map(item => ({ ...item }))
   };
 }
 
@@ -1084,8 +1107,8 @@ function normalizeDrawerRunnerExtras() {
     const cost = componentCost || known.cost;
     const ratio = known.cost ? known.client / known.cost : 1.7;
     item.cost = money(cost);
-    if (item.manualClient !== true) item.client = Math.ceil(cost * ratio);
-    if (item.manualReseller !== true) item.reseller = Number(item.client) || Math.ceil(cost * ratio);
+    if (item.manualClient !== true) item.client = cost * ratio;
+    if (item.manualReseller !== true) item.reseller = Number(item.client) || cost * ratio;
   });
 }
 
@@ -1163,7 +1186,7 @@ function calculateWardrobeDrawerUnit(extra, pricingMode, measures) {
   const runnerCost = Number(runner?.cost ?? runner?.supplierPrice) || 0;
   const unitCost = money(baseLine.cost + frontLine.cost + runnerCost);
   const automaticMargin = pricingMode === 'reseller' ? 1.35 : 1.7;
-  const automaticClient = unitCost ? Math.ceil(unitCost * automaticMargin) : Math.ceil(baseLine.client + frontLine.client);
+  const automaticClient = unitCost ? unitCost * automaticMargin : baseLine.client + frontLine.client;
   const unitClient = money(automaticClient);
   return {
     unitCost,
@@ -1239,7 +1262,8 @@ function calculateQuoteInternal(payload) {
   const client = payload.client || quoteSeed.client;
   const pricingMode = payload.pricingMode === 'reseller' ? 'reseller' : 'normal';
   const modules = Array.isArray(payload.modules) ? payload.modules : quoteSeed.modules;
-  const extras = Array.isArray(payload.extras) ? payload.extras : quoteSeed.extras;
+  const ledPlan = ledTransformers.arrange(Array.isArray(payload.extras) ? payload.extras : quoteSeed.extras, catalog.extras);
+  const extras = ledPlan.extras;
 
   const moduleLines = modules.map(module => {
     const quantity = Number(module.quantity) || 0;
@@ -1264,10 +1288,11 @@ function calculateQuoteInternal(payload) {
     const manualPricedExtra = !blankExtra && isManualPricedExtra(extra);
     const catalogItem = blankExtra || manualPricedExtra ? null : catalog.extras.find(item => catalogExtraMatches(item, extra));
     const lacquerClient = isSkirtingExtra(extra) && isLacqueredExtra(extra) ? skirtingLacquerClientPerMeter : 0;
-    const baseExtraClient = catalogItem
+    const handleCm = normalizeExtraGroupName(extra.group) === 'Puxadores' && catalogItem?.priceUnit === 'cm';
+    const baseExtraClient = handleCm ? (Number(catalogItem.client) || 0) : catalogItem
       ? (pricingMode === 'reseller' ? (Number(catalogItem.reseller) || Number(catalogItem.client) || 0) : (Number(catalogItem.client) || 0))
       : (Number(extra.unitClient) || 0);
-    const baseExtraCost = catalogItem ? (Number(catalogItem.cost) || 0) : (Number(extra.unitCost) || 0);
+    const baseExtraCost = handleCm ? 0 : catalogItem ? (Number(catalogItem.cost) || 0) : (Number(extra.unitCost) || 0);
     const rodLine = !blankExtra && !wardrobeDrawer ? wardrobeRodLine(extra, catalogItem, baseExtraClient, baseExtraCost) : null;
     const unitClient = blankExtra ? 0 : (wardrobeDrawer ? wardrobeDrawer.unitClient : (rodLine ? rodLine.unitClient : (baseExtraClient + lacquerClient)));
     const unitCost = blankExtra ? 0 : (wardrobeDrawer ? wardrobeDrawer.unitCost : (rodLine ? rodLine.unitCost : baseExtraCost));
@@ -1290,7 +1315,7 @@ function calculateQuoteInternal(payload) {
   const finalTotal = money(moduleTotal + extrasTotal);
   const margin = money(finalTotal - costTotal);
 
-  return { client, pricingMode, modules: moduleLines, extras: extraLines, totals: { moduleTotal, extrasTotal, costTotal, finalTotal, margin }, warnings: quoteWarnings(modules, extras) };
+  return { client, pricingMode, modules: moduleLines, extras: extraLines, totals: { moduleTotal, extrasTotal, costTotal, finalTotal, margin }, warnings: quoteWarnings(modules, extras).concat(ledPlan.warnings) };
 }
 
 function calculateQuote(payload) {
@@ -1458,7 +1483,7 @@ app.post('/api/supplier-prices/plate', requireAdmin, async (req, res) => {
 
 app.delete('/api/supplier-prices/item', requireAdmin, async (req, res) => {
   try {
-    const result = await deleteSupplierCatalogItem(String(req.body?.type || ''), req.body?.index);
+    const result = await deleteSupplierCatalogItem(String(req.body?.type || ''), req.body?.index, req.body?.catalogId);
     res.json({ ...supplierPricePayload(), saved: result });
   } catch (error) {
     res.status(500).json({ error: error.message });

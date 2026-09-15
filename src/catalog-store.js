@@ -39,6 +39,9 @@ function validateCatalog(data) {
   }
   for (const key of CATEGORIES) {
     if (!Array.isArray(data.catalog[key])) throw new Error('Categoria invalida: ' + key);
+    data.catalog[key].forEach((item, index) => {
+      if (!item.catalogId) item.catalogId = key + ':legacy:' + index;
+    });
   }
   return data;
 }

@@ -80,8 +80,26 @@ test('application works without Excel: bootstrap, calculate, authorization, save
     const edited = await (await request('/api/bootstrap')).json();
     assert.equal(edited.catalog.plates[0].name,'Placa teste editada');
     assert.equal(edited.catalog.plates.filter(item => item.name === 'Placa teste editada').length,1);
+    const referenceSave = await request('/api/supplier-prices','PUT',{plates:[{__dirtyIndex:0,reference:'REF independente 123'}]},cookie);
+    assert.equal(referenceSave.status,200,await referenceSave.clone().text());
+    const referenceEdited = await (await request('/api/bootstrap')).json();
+    assert.equal(referenceEdited.catalog.plates[0].name,'Placa teste editada');
+    assert.equal(referenceEdited.catalog.plates[0].reference,'REF independente 123');
+    assert.equal(referenceEdited.catalog.plates.length,seed.catalog.plates.length);
+    const groupChange = {__dirtyIndex:0,compareGroup:'Nome escolhido no comparador',compareGroupKey:'grupo-estavel'};
+    const groupSave = await request('/api/supplier-prices','PUT',{plates:[groupChange]},cookie);
+    assert.equal(groupSave.status,200,await groupSave.clone().text());
+    const groupSaved = await groupSave.json();
+    assert.equal(groupSaved.plates[0].compareGroup,groupChange.compareGroup);
+    assert.equal(groupSaved.plates[0].compareGroupKey,groupChange.compareGroupKey);
+    const groupReloaded = await (await request('/api/supplier-prices')).json();
+    assert.equal(groupReloaded.plates[0].compareGroup,groupChange.compareGroup);
+    assert.equal(groupReloaded.plates[0].compareGroupKey,groupChange.compareGroupKey);
+    assert.equal(groupReloaded.plates[0].name,'Placa teste editada');
+    assert.equal(groupReloaded.plates[0].reference,'REF independente 123');
     const staleRename = {...edited.catalog.plates[0],name:'Nome sem indice antigo'};
     delete staleRename.__dirtyIndex;
+    delete staleRename.catalogId;
     const staleSave = await request('/api/supplier-prices','PUT',{plates:[staleRename]},cookie);
     assert.equal(staleSave.status,200,await staleSave.clone().text());
     const afterStale = await (await request('/api/bootstrap')).json();
@@ -94,6 +112,30 @@ test('application works without Excel: bootstrap, calculate, authorization, save
     assert.equal(deleted.catalog.plates.some(item => item.name === deletedName),false);
     assert.equal(deleted.catalog.plates.filter(item => item.name === 'Placa teste editada').length,1);
     assert.equal(deleted.catalog.plates.length,seed.catalog.plates.length - 1);
+    const target = deleted.catalog.plates[2];
+    const untouched = structuredClone(deleted.catalog.plates[0]);
+    const stableSave = await request('/api/supplier-prices','PUT',{plates:[{catalogId:target.catalogId,__dirtyIndex:0,reference:untouched.reference}]},cookie);
+    assert.equal(stableSave.status,200,await stableSave.clone().text());
+    const stableReload = await (await request('/api/bootstrap')).json();
+    assert.deepEqual(stableReload.catalog.plates[0],untouched);
+    assert.equal(stableReload.catalog.plates[2].catalogId,target.catalogId);
+    assert.equal(stableReload.catalog.plates[2].name,target.name);
+    assert.equal(stableReload.catalog.plates[2].reference,untouched.reference);
+    assert.equal(stableReload.catalog.plates.length,deleted.catalog.plates.length);
+    const migrated = {...stableReload.catalog.plates[2],catalogId:'old-browser-id',supplierPrice:22.34};
+    const migratedSave = await request('/api/supplier-prices','PUT',{plates:[migrated]},cookie);
+    assert.equal(migratedSave.status,200,await migratedSave.clone().text());
+    const migratedReload = await (await request('/api/bootstrap')).json();
+    assert.equal(migratedReload.catalog.plates[2].catalogId,target.catalogId);
+    assert.equal(migratedReload.catalog.plates[2].supplierPrice,22.34);
+    const invalidSave = await request('/api/supplier-prices','PUT',{plates:[
+      {catalogId:untouched.catalogId,supplierPrice:999},
+      {catalogId:'missing-id',name:'Material inexistente',__dirtyIndex:0}
+    ]},cookie);
+    assert.equal(invalidSave.status,500);
+    assert.match((await invalidSave.json()).error,/Material inexistente/);
+    const afterInvalid = await (await request('/api/bootstrap')).json();
+    assert.deepEqual(afterInvalid.catalog.plates,migratedReload.catalog.plates);
     const disk = await createCatalogStore({mode:'local',file:process.env.CATALOG_LOCAL_FILE}).read();
     assert.equal(disk.data.catalog.plates[0].name,'Placa teste editada');
   } finally {

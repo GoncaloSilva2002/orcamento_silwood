@@ -1,4 +1,4 @@
-﻿const euro = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
+const euro = new Intl.NumberFormat('pt-PT', { style: 'currency', currency: 'EUR' });
 const storageKey = 'silwood-orcamento-v1';
 const supplierAdditionsKey = 'silwood-supplier-additions-v1';
 const supplierDraftKey = 'silwood-supplier-draft-v1';
@@ -399,6 +399,7 @@ function markSupplierPricesDirty() {
 }
 function supplierDirtyKey(item, fallback) {
   if (!item) return String(fallback || '');
+  if (item.catalogId) return 'ID|' + item.catalogId;
   if (item.__dirtyIndex !== undefined && item.__dirtyIndex !== null) return 'INDEX|' + String(item.__dirtyIndex);
   return [
     item.priceKey,
@@ -421,9 +422,9 @@ function trackSupplierChange(type, item, fallback) {
 function supplierDirtyPayload() {
   const payload = {};
   Object.keys(supplierDirtyChanges).forEach(function (type) {
-    const values = dedupeSupplierItems(type, Array.from(supplierDirtyChanges[type].values()).map(function (item) {
+    const values = Array.from(supplierDirtyChanges[type].values()).map(function (item) {
       return clone(item);
-    }));
+    });
     if (values.length) payload[type] = values;
   });
   return payload;
@@ -438,6 +439,17 @@ function clearSupplierDirtyChanges() {
     supplierDirtyChanges[type].clear();
   });
   localStorage.removeItem(supplierDraftKey);
+}
+function acknowledgeSupplierChanges(payload) {
+  Object.keys(payload).forEach(function (type) {
+    const changes = supplierDirtyChanges[type];
+    if (!changes || !Array.isArray(payload[type])) return;
+    payload[type].forEach(function (saved) {
+      const key = supplierDirtyKey(saved, saved.__dirtyIndex);
+      if (JSON.stringify(changes.get(key)) === JSON.stringify(saved)) changes.delete(key);
+    });
+  });
+  persistSupplierDraftChanges();
 }
 function persistSupplierDraftChanges() {
   const payload = supplierDirtyPayload();
@@ -1437,6 +1449,7 @@ async function calculate(options) {
   applySupplierAdditions();
   canonicalizeQuoteExtras();
   prepareWardrobeDrawerExtras();
+  state.extras = ledTransformers.arrange(state.extras, state.catalog.extras || []).extras;
   const response = await fetch('/api/calculate', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -2283,6 +2296,7 @@ function splitModuleQuantity(index) {
 }
 
 function renderFinal() {
+  state.extras = ledTransformers.arrange(state.extras, state.catalog.extras || []).extras;
   const sellLabel = state.pricingMode === 'reseller' ? 'REVENDEDOR' : 'CLIENTE';
   const headings = ['MÓVEL','GRUPO','DESCRIÃ‡ÃƒO','QTD','P. UNIT ' + sellLabel,'TOTAL ' + sellLabel,'CUSTO UNIT.','TOTAL CUSTO','DESCRIÃ‡ÃƒO FINAL','AÃ‡ÃƒO'];
   const extraGroups = Array.from(new Set((state.lists.extraGroups || []).concat([wardrobeDrawerGroup]).map(normalizeExtraGroupName).filter(Boolean)));
@@ -2315,11 +2329,16 @@ function renderFinal() {
       const rodCell = rodExtra
         ? '<div class="rod-extra-config"><select data-extra="' + i + '" data-field="item" data-extra-item-select="' + i + '">' + optionList(extraItems(e.group), e.item) + '</select><label><span>Cm usados</span>' + input('text', e.rodLengths || '', 'placeholder="Ex: 45 ou 15+85" data-extra="' + i + '" data-field="rodLengths"') + '</label></div>'
         : '';
-      const itemCell = wardrobeDrawer ? drawerCell : isOtherExtra(e)
+      let itemCell = wardrobeDrawer ? drawerCell : isOtherExtra(e)
         ? input('text', e.item || '', 'placeholder="Descrição" data-extra="' + i + '" data-field="item"')
         : (isKitchenDrawerExtra(e)
           ? '<div class="drawer-module-picker"><label><span>Módulo</span><select data-extra="' + i + '" data-field="targetModuleId">' + drawerModuleOptionList(e) + '</select></label><select data-extra="' + i + '" data-field="item" data-extra-item-select="' + i + '">' + optionList(extraItems(e.group), e.item) + '</select><button class="soft-inline-button" type="button" data-split-drawer-extra="' + i + '">Dividir por módulo</button></div>'
           : (rodExtra ? rodCell : '<select data-extra="' + i + '" data-field="item" data-extra-item-select="' + i + '">' + optionList(extraItems(e.group), e.item) + '</select>')) + lacquerCell;
+      if (normalizeExtraGroupName(e.group) === 'Puxadores') itemCell += '<small>Quantidade em ' + (findCatalogExtraForQuote(e)?.priceUnit === 'cm' ? 'cm; preco por cm' : (findCatalogExtraForQuote(e)?.priceUnit === 'meter' ? 'metros; preco por metro' : 'unidades; preco por unidade')) + '</small>';
+      if (normalizeExtraGroupName(e.group) === 'Puxadores') {
+        const use = findCatalogExtraForQuote(e)?.handleUse;
+        if (use) itemCell += '<small>' + (use === 'cozinha' ? 'Cozinha' : 'Roupeiro') + '</small>';
+      }
       const clientCell = manualPriced
         ? input('number', unitClient, 'min="0" step="0.01" data-extra="' + i + '" data-field="unitClient"')
         : money(unitClient);
@@ -2538,7 +2557,7 @@ function automaticPrice(item, field, value) {
   if (!item) return;
   if (field === 'client' && item.manualClient === true) return;
   if (field === 'reseller' && item.manualReseller === true) return;
-  item[field] = roundSaleUp(value);
+  item[field] = salePriceValue(value);
 }
 
 function applyAutomaticClientReseller(item, clientValue, resellerValue) {
@@ -2548,7 +2567,7 @@ function applyAutomaticClientReseller(item, clientValue, resellerValue) {
 
 function forceAutomaticPrice(item, field, value) {
   if (!item) return;
-  item[field] = roundSaleUp(value);
+  item[field] = salePriceValue(value);
 }
 
 function roundMeterPrice(value) {
@@ -2621,10 +2640,8 @@ function commitSupplierManualPriceInput(input) {
   const list = supplierManualPriceList(type);
   const item = list[index];
   if (!item || (field !== 'client' && field !== 'reseller')) return false;
-  const nextValue = type === 'edges' ? num(input.value) : roundSaleUp(num(input.value));
-  const isManual = field === 'client' ? item.manualClient === true : item.manualReseller === true;
-  if (Number(item[field]) === nextValue && isManual) {
-    input.value = supplierNumber(nextValue);
+  const nextValue = type === 'edges' ? num(input.value) : salePriceValue(num(input.value));
+  if (num(input.value) === num(supplierNumber(item[field]))) {
     return false;
   }
   const before = clone(item);
@@ -3014,6 +3031,7 @@ function supplierRemovalStore() {
 }
 
 function supplierRemovalKey(type, item) {
+  if (item?.catalogId) return type + '|ID|' + item.catalogId;
   const nameValue = item?.name || item?.item || item?.label;
   return [
     type,
@@ -3143,7 +3161,7 @@ function dedupeSupplierItems(type, items) {
     if (type === 'drawerComponents' || type === 'extras') normalizeKnownDrawerComponentName(item);
     if (type === 'hinges' && isBadHingeSummary(item)) return false;
     const cleanedName = cleanDuplicatedSupplierName(item?.name || item?.item || item?.label, item?.reference);
-    if (cleanedName) {
+    if (cleanedName && !item.catalogId) {
       if (item.name) item.name = cleanedName;
       if (item.item && comparableText(item.item) !== comparableText(item.reference)) item.item = cleanedName;
       if (item.label && comparableText(item.label) !== comparableText(item.reference)) item.label = cleanedName;
@@ -3312,7 +3330,7 @@ async function deleteSupplierItem(type, index) {
   const response = await fetch('/api/supplier-prices/item', {
     method: 'DELETE',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ type: type, index: Number(index) })
+    body: JSON.stringify({ type: type, index: Number(index), catalogId: item.catalogId })
   });
   const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Não foi possível eliminar o item.');
@@ -3820,11 +3838,10 @@ function bestKnownPlateNameForKey(key) {
 
 function normalizePlateItemName(item) {
   if (!item) return item;
-  if (item.name) item.name = cleanMaterialName(String(item.name).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167'));
-  if (item.reference) item.reference = cleanMaterialName(String(item.reference).replace(/\bDONAE\b/gi, 'SONAE').replace(/\bF167\b/gi, 'L167').replace(/\bDO\s*-\s*/gi, 'SONAE '));
-  const canonical = canonicalPlateNameFromReference([item.reference, item.name].filter(Boolean).join(' '));
-  if (canonical && !item.compareGroup) item.name = expandPlateFinishName(cleanMaterialName(canonical));
-  if (item.reference) item.reference = expandPlateFinishName(cleanMaterialName(item.reference));
+  // Only supply a missing legacy name. Names and supplier references are independent.
+  if (item.name === undefined || item.name === null) {
+    item.name = canonicalPlateNameFromReference(item.reference || '');
+  }
   return item;
 }
 
@@ -3904,6 +3921,7 @@ function plateCompareGroupName(item) {
 }
 
 function dedupePlateMarketEntries(entries) {
+  if (entries.some(function (entry) { return entry.item.catalogId; })) return entries;
   const bestBySupplier = new Map();
   entries.forEach(function (entry) {
     const key = plateMarketOptionKey(entry.item);
@@ -3918,14 +3936,14 @@ function dedupePlateMarketEntries(entries) {
 function dedupePlateOptions() {
   const seen = new Set();
   state.supplierPrices = (state.supplierPrices || []).filter(function (item) {
-    const key = plateOptionKey(item);
+    const key = item.catalogId || plateOptionKey(item);
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
   });
   const catalogSeen = new Set();
   state.catalog.plates = (state.catalog.plates || []).filter(function (item) {
-    const key = plateOptionKey(item);
+    const key = item.catalogId || plateOptionKey(item);
     if (catalogSeen.has(key)) return false;
     catalogSeen.add(key);
     return true;
@@ -3981,6 +3999,7 @@ function applySupplierAdditions() {
   }
   if (cleanedStore) localStorage.setItem(supplierAdditionsKey, JSON.stringify(store));
   (store.plates || []).forEach(function (item) {
+    if (item.catalogId) return; // Saved catalogue rows come from the server, not old local additions.
     item.userAdded = true;
     normalizePlateItemName(item);
     if (!itemSupplierExists(state.supplierPrices, 'name', item.name, item.supplier)) state.supplierPrices.push(clone(item));
@@ -4047,6 +4066,7 @@ function applySupplierAdditions() {
 }
 
 function findSupplierDraftTarget(list, item, nameField) {
+  if (item.catalogId) return list.find(function (candidate) { return candidate.catalogId === item.catalogId; });
   const draftIndex = Number(item.__dirtyIndex);
   if (Number.isInteger(draftIndex) && draftIndex >= 0 && list[draftIndex]) return list[draftIndex];
   const wantedName = comparableText(item[nameField] || item.name || item.item);
@@ -4064,7 +4084,7 @@ function mergeSupplierDraftList(list, items, nameField) {
   if (!Array.isArray(list) || !Array.isArray(items)) return;
   items.forEach(function (item) {
     if (item && item.__delete === true) {
-      const deleteIndex = Number(item.__dirtyIndex);
+      const deleteIndex = item.catalogId ? list.findIndex(function (candidate) { return candidate.catalogId === item.catalogId; }) : Number(item.__dirtyIndex);
       if (Number.isInteger(deleteIndex) && deleteIndex >= 0 && deleteIndex < list.length) list.splice(deleteIndex, 1);
       return;
     }
@@ -4074,7 +4094,7 @@ function mergeSupplierDraftList(list, items, nameField) {
     const target = findSupplierDraftTarget(list, copy, nameField);
     if (target) {
       Object.assign(target, copy);
-    } else {
+    } else if (!copy.catalogId) {
       list.push(copy);
     }
   });
@@ -4253,8 +4273,8 @@ function bestSupplierPriceGroups() {
 
 function bestSupplierPriceSummary() {
   return Array.from(bestSupplierPriceGroups().values()).sort(function (a, b) {
-    return String(plateGroupLabel(a) || a.name || '').localeCompare(
-      String(plateGroupLabel(b) || b.name || ''),
+    return String(plateCompareGroupName(a)).localeCompare(
+      String(plateCompareGroupName(b)),
       'pt',
       { sensitivity: 'base', numeric: true }
     );
@@ -4296,15 +4316,15 @@ function averageMetric(items, getter, fallback) {
   return values.length ? values.reduce(function (sum, value) { return sum + value; }, 0) / values.length : fallback;
 }
 
-function roundSaleUp(value) {
+function salePriceValue(value) {
   const number = Number(value) || 0;
-  return number > 0 ? Math.ceil(number) : 0;
+  return number > 0 ? number : 0;
 }
 
 function roundSaleFields(item) {
   if (!item) return item;
-  if ('client' in item) item.client = roundSaleUp(item.client);
-  if ('reseller' in item) item.reseller = roundSaleUp(item.reseller ?? item.client);
+  if ('client' in item) item.client = salePriceValue(item.client);
+  if ('reseller' in item) item.reseller = salePriceValue(item.reseller ?? item.client);
   return item;
 }
 
@@ -4349,8 +4369,8 @@ function pricingFromClosestExistingItem(tab, supplierPrice) {
   return {
     supplierPrice: price,
     cost,
-    client: roundSaleUp(cost * clientRatio),
-    reseller: roundSaleUp(cost * resellerRatio)
+    client: salePriceValue(cost * clientRatio),
+    reseller: salePriceValue(cost * resellerRatio)
   };
 }
 
@@ -4360,13 +4380,13 @@ function newItemPricing(tab, supplierPrice, options) {
   if (tab === 'Madeiras / Placas') {
     const item = { supplierPrice: price };
     calculateSupplierRow(item);
-    item.client = roundSaleUp(item.client);
-    item.reseller = roundSaleUp(item.reseller);
+    item.client = salePriceValue(item.client);
+    item.reseller = salePriceValue(item.reseller);
     return item;
   }
   const markupMultiplier = supplierPriceMarkupMultiplier(tab);
   if (markupMultiplier) {
-    const sale = roundSaleUp(price * markupMultiplier);
+    const sale = salePriceValue(price * markupMultiplier);
     return { supplierPrice: price, cost: price, client: sale, reseller: sale };
   }
   if (tab === 'Orlas') {
@@ -4380,12 +4400,12 @@ function newItemPricing(tab, supplierPrice, options) {
     const items = supplierItemsForTab(tab);
     const cost = price * 1.08;
     const ratio = averageMetric(items, function (item) { return (Number(item.client) || 0) / (Number(item.cost) || 0); }, 2.5);
-    const sale = roundSaleUp(cost * ratio);
+    const sale = salePriceValue(cost * ratio);
     return { supplierPrice: price, cost, client: sale, reseller: sale };
   }
   if (tab === 'Sistemas de abertura' || tab === doorSystemExtraGroup) {
     const cost = openingSystemCostFromSupplier({}, price);
-    const sale = roundSaleUp(cost * 1.7);
+    const sale = salePriceValue(cost * 1.7);
     return { supplierPrice: price, cost, client: sale, reseller: sale };
   }
   const closestPricing = pricingFromClosestExistingItem(tab, price);
@@ -4395,7 +4415,7 @@ function newItemPricing(tab, supplierPrice, options) {
   const labor = averageMetric(laborItems, function (item) { return (Number(item.cost) || 0) - (Number(item.supplierPrice) || 0); }, 0);
   const ratio = averageMetric(items, function (item) { return (Number(item.client) || 0) / (Number(item.cost) || 0); }, 2.5);
   const cost = price + labor;
-  const sale = roundSaleUp(cost * ratio);
+  const sale = salePriceValue(cost * ratio);
   return { supplierPrice: price, cost, client: sale, reseller: sale };
 }
 
@@ -4491,7 +4511,10 @@ function supplierAddFormHtml() {
   const componentConfig = supplierComponentConfig(state.supplierTab);
   if (state.supplierTab === 'Madeiras / Placas') {
     return '<div class="supplier-add-row supplier-add-row-plate">' +
-      '<label><span>Item / refer&ecirc;ncia</span><input data-new-item-field="name" name="silwood_item_reference" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="Refer&ecirc;ncia da madeira"></label>' +
+      '<label><span>Destino da madeira</span><select data-new-item-field="plateItemMode"><option value="existing">Associar a um item existente</option><option value="new">Criar um novo item</option></select></label>' +
+      '<label data-plate-existing-item><span>Item</span><input data-new-item-field="plateParent" list="plateParentOptions" autocomplete="off" placeholder="Escrever e escolher item"><datalist id="plateParentOptions">' + plateParentOptions().map(function (entry) { return '<option value="' + attrEsc(entry.label) + '"></option>'; }).join('') + '</datalist></label>' +
+      '<label data-plate-new-item hidden><span>Nome do novo item</span><input data-new-item-field="name" autocomplete="off" placeholder="Nome do item" disabled></label>' +
+      '<label><span>Refer&ecirc;ncia da madeira</span><input data-new-item-field="reference" autocomplete="off" placeholder="Refer&ecirc;ncia do fornecedor"></label>' +
       '<label><span>Fornecedor</span><input data-new-item-field="supplier" name="silwood_supplier" autocomplete="new-password" autocapitalize="off" spellcheck="false" list="supplierNameOptions" placeholder="Escolher fornecedor"></label>' +
       '<datalist id="supplierNameOptions">' + suppliers.map(function (supplier) { return '<option value="' + esc(supplier) + '"></option>'; }).join('') + '</datalist>' +
       '<label><span>Tipo de pre&ccedil;o</span><select data-new-item-field="platePriceMode"><option value="m2">Valor por m&sup2;</option><option value="sheet">Valor da placa</option></select></label>' +
@@ -4533,6 +4556,8 @@ function supplierAddFormHtml() {
   }
   return '<div class="supplier-add-row">' +
     supplierAddModeHtml(componentConfig) +
+    (normalizeExtraGroupName(state.supplierTab) === 'Puxadores' ? '<label><span>Preco por</span><select data-new-item-field="priceUnit"><option value="unit">Unidade</option><option value="cm">Centimetro (cm)</option></select></label>' : '') +
+    (normalizeExtraGroupName(state.supplierTab) === 'Puxadores' ? '<label><span>Utilizacao</span><select data-new-item-field="handleUse"><option value="">Escolher</option><option value="cozinha">Cozinha</option><option value="roupeiro">Roupeiro</option></select></label>' : '') +
     '<label><span>Item / referencia</span><input data-new-item-field="name" name="silwood_extra_item_reference" autocomplete="new-password" autocapitalize="off" spellcheck="false" placeholder="Referencia do item"></label>' +
     '<label><span>Fornecedor</span><input data-new-item-field="supplier" name="silwood_extra_supplier" autocomplete="new-password" autocapitalize="off" spellcheck="false" list="supplierNameOptions" placeholder="Escolher fornecedor"></label>' +
     '<datalist id="supplierNameOptions">' + suppliers.map(function (supplier) { return '<option value="' + esc(supplier) + '"></option>'; }).join('') + '</datalist>' +
@@ -4575,6 +4600,15 @@ function refreshNewItemPreview() {
     return;
   }
   const pricing = newItemPricing(state.supplierTab, newSupplierPriceValue(), { supplierMeters: newSupplierMetersValue() });
+  if (normalizeExtraGroupName(state.supplierTab) === 'Puxadores') {
+    const cm = supplierPricesGrid.querySelector('[data-new-item-field="priceUnit"]')?.value === 'cm';
+    priceInput.closest('label').querySelector('span').textContent = cm ? 'Preco cliente / cm' : 'Preco fornecedor';
+    if (cm) {
+      clientPreview.textContent = money(num(priceInput.value)) + '/cm';
+      if (resellerPreview) resellerPreview.textContent = money(num(priceInput.value)) + '/cm';
+      return;
+    }
+  }
   if (costPreview) costPreview.textContent = money(pricing.cost) + (state.supplierTab === 'Orlas' ? '/ml' : '');
   clientPreview.textContent = money(pricing.client) + (state.supplierTab === 'Orlas' ? '/ml' : '');
   if (resellerPreview) resellerPreview.textContent = money(pricing.reseller);
@@ -4654,8 +4688,31 @@ function newSupplierMetersValue() {
   return num(supplierPricesGrid.querySelector('[data-new-item-field="supplierMeters"]')?.value || 0);
 }
 
+function plateParentOptions() {
+  const entries = Array.from(bestSupplierPriceGroups()).map(function (entry) {
+    return { key: entry[0], item: entry[1], label: plateCompareGroupName(entry[1]) };
+  });
+  const counts = new Map();
+  entries.forEach(function (entry) {
+    const name = comparableText(entry.label);
+    counts.set(name, (counts.get(name) || 0) + 1);
+  });
+  return entries.map(function (entry, index) {
+    if (counts.get(comparableText(entry.label)) > 1) entry.label += ' (' + (index + 1) + ')';
+    return entry;
+  });
+}
+
 function updatePlateSheetFields() {
   if (state.supplierTab !== 'Madeiras / Placas') return;
+  const createItem = supplierPricesGrid.querySelector('[data-new-item-field="plateItemMode"]')?.value === 'new';
+  ['existing', 'new'].forEach(function (kind) {
+    const field = supplierPricesGrid.querySelector('[data-plate-' + kind + '-item]');
+    if (!field) return;
+    const active = kind === 'new' ? createItem : !createItem;
+    field.hidden = !active;
+    field.querySelectorAll('input, select').forEach(function (input) { input.disabled = !active; });
+  });
   const mode = supplierPricesGrid.querySelector('[data-new-item-field="platePriceMode"]')?.value || 'm2';
   const sheetMode = mode === 'sheet';
   supplierPricesGrid.querySelectorAll('[data-plate-sheet-field]').forEach(function (field) {
@@ -4679,7 +4736,28 @@ async function addSupplierItem() {
   const quantityInput = supplierPricesGrid.querySelector('[data-new-item-field="quantity"]');
   const priceInput = supplierPricesGrid.querySelector('[data-new-item-field="supplierPrice"]');
   const referenceValue = String(referenceInput?.value || '').trim();
-  const name = String((tab === 'Pinturas' && itemMode === 'component' ? referenceValue : nameInput?.value) || '').trim();
+  let name = String((tab === 'Pinturas' && itemMode === 'component' ? referenceValue : nameInput?.value) || '').trim();
+  let plateParent = null;
+  let plateDestinationKey = '';
+  if (tab === 'Madeiras / Placas') {
+    const createItem = supplierPricesGrid.querySelector('[data-new-item-field="plateItemMode"]')?.value === 'new';
+    if (!createItem) {
+      const selectedName = supplierPricesGrid.querySelector('[data-new-item-field="plateParent"]')?.value || '';
+      const selected = plateParentOptions().find(function (entry) { return comparableText(entry.label) === comparableText(selectedName); });
+      plateDestinationKey = selected?.key || '';
+      plateParent = selected?.item;
+      if (!plateParent) {
+        sourceStatus.textContent = 'Escolhe um item existente ou seleciona Criar um novo item.';
+        return;
+      }
+      name = plateParent.name;
+    } else {
+      if (!name) { sourceStatus.textContent = 'Preenche o nome do novo item.'; return; }
+      if (Array.from(bestSupplierPriceGroups().values()).some(function (item) { return comparableText(plateCompareGroupName(item)) === comparableText(name); })) return warnDuplicateItem(name);
+      plateDestinationKey = 'MANUAL|' + comparableText(name);
+    }
+    if (!referenceValue) { sourceStatus.textContent = 'Preenche a referencia da madeira.'; return; }
+  }
   if (!name) return;
   const supplier = canonicalSupplierName(supplierInput?.value || '', tab);
   const pricing = newItemPricing(tab, newSupplierPriceValue(), { supplierMeters: newSupplierMetersValue() });
@@ -4701,14 +4779,15 @@ async function addSupplierItem() {
       reseller = 0;
     } else {
       cost = openingSystemCostFromSupplier({ reference, name, item: name, label: name }, supplierPrice);
-      client = roundSaleUp(cost * 1.7);
+      client = salePriceValue(cost * 1.7);
       reseller = client;
     }
   }
   let addedPlate = null;
   let addedExtra = false;
+  const handleCm = tab === 'Puxadores' && supplierPricesGrid.querySelector('[data-new-item-field="priceUnit"]')?.value === 'cm';
 
-  if (tab !== 'Pinturas' && !principalFromComponents && (!name || !supplier || !supplierPrice)) {
+  if (tab !== 'Pinturas' && !principalFromComponents && (!name || (!supplier && !handleCm) || !supplierPrice)) {
     sourceStatus.textContent = 'Preenche nome, fornecedor e preço fornecedor.';
     window.alert('Preenche nome, fornecedor e preço fornecedor.');
     return;
@@ -4790,7 +4869,8 @@ async function addSupplierItem() {
   }
 
   if (tab === 'Madeiras / Placas') {
-    const item = normalizePlateItemName({ name, supplier, reference, supplierPrice, cost, client, reseller, paintable: true, userAdded: true });
+    const item = normalizePlateItemName({ name, supplier, reference, supplierPrice, cost, client, reseller, paintable: plateParent?.paintable ?? true, userAdded: true,
+      compareGroup: plateParent ? plateCompareGroupName(plateParent) : name, compareGroupKey: plateDestinationKey });
     if ((state.supplierPrices || []).some(function (existing) { return plateOptionKey(existing) === plateOptionKey(item) && !isSupplierRemoved('plates', existing); })) return warnDuplicateItem(name);
     clearSupplierRemoval('plates', item);
     state.supplierPrices.push(item);
@@ -4819,8 +4899,8 @@ async function addSupplierItem() {
     if (itemSupplierExists(state.catalog.doorSystems, 'name', name, supplier, undefined, 'doorSystems')) return warnDuplicateItem(name);
     const item = { name, supplier, reference, supplierPrice, cost, client, reseller, manualSupplierPrice: true, userAdded: true };
     normalizeOpeningSystemPricing(item, true);
-    item.client = roundSaleUp(item.client);
-    item.reseller = roundSaleUp(item.reseller || item.client);
+    item.client = salePriceValue(item.client);
+    item.reseller = salePriceValue(item.reseller || item.client);
     clearSupplierRemoval('doorSystems', item);
     clearSupplierRemoval('openingSystemComponents', { item: name, label: name, supplier, reference });
     clearSupplierRemoval('extras', { group: doorSystemExtraGroup, item: name, label: name, supplier, reference });
@@ -4840,8 +4920,16 @@ async function addSupplierItem() {
     trackSupplierChange('hinges', item, name);
   } else {
     const group = normalizeExtraGroupName(tab);
+    const handleUse = supplierPricesGrid.querySelector('[data-new-item-field="handleUse"]')?.value || '';
+    if (group === 'Puxadores' && !['cozinha', 'roupeiro'].includes(handleUse)) {
+      sourceStatus.textContent = 'Escolhe se o puxador e de cozinha ou de roupeiro.';
+      return;
+    }
     if (itemSupplierExists(state.catalog.extras, 'item', name, supplier, group, 'extras')) return warnDuplicateItem(name);
     const item = { group, item: name, label: name, supplier, reference, supplierPrice, cost, client, reseller, userAdded: true, createdAt: Date.now() };
+    if (group === 'Puxadores') item.priceUnit = supplierPricesGrid.querySelector('[data-new-item-field="priceUnit"]')?.value === 'cm' ? 'cm' : 'unit';
+    if (group === 'Puxadores') item.handleUse = handleUse;
+    if (handleCm) Object.assign(item, { supplierPrice: 0, cost: 0, client: num(priceInput.value), reseller: num(priceInput.value), manualClient: true, manualReseller: true });
     clearSupplierRemoval('extras', item);
     state.catalog.extras.push(item);
     addUniqueListItem('extraGroups', group);
@@ -4869,8 +4957,10 @@ async function addSupplierItem() {
   if (addedPlate) {
     sourceStatus.textContent = 'A guardar madeira no catálogo...';
     try {
-      await saveSupplierPlate(addedPlate);
-      sourceStatus.textContent = 'Madeira adicionada e gravada no catálogo.';
+      const refreshed = await saveSupplierPlate(addedPlate);
+      sourceStatus.textContent = refreshed === false
+        ? 'Madeira guardada. Atualiza a pagina para atualizar os dados apresentados.'
+        : 'Madeira adicionada e gravada no catálogo.';
     } catch (error) {
       trackSupplierChange('plates', addedPlate, addedPlate.name);
       sourceStatus.textContent = 'Madeira adicionada na app, mas nao foi gravada no catálogo: ' + error.message;
@@ -4967,19 +5057,25 @@ function supplierExtraSort(a, b) {
 }
 
 function editableExtraPriceRow(index, item) {
+  const handleCm = normalizeExtraGroupName(item.group) === 'Puxadores' && item.priceUnit === 'cm';
+  if (handleCm) Object.assign(item, { cost: 0, supplierPrice: 0, manualClient: true, reseller: item.client, manualReseller: true });
+  const handleUseControl = normalizeExtraGroupName(item.group) === 'Puxadores'
+    ? '<label><span>Utilizacao</span><select data-handle-use="' + index + '"><option value="">Por definir</option><option value="cozinha"' + (item.handleUse === 'cozinha' ? ' selected' : '') + '>Cozinha</option><option value="roupeiro"' + (item.handleUse === 'roupeiro' ? ' selected' : '') + '>Roupeiro</option></select></label>' : '';
+  const priceUnitControl = normalizeExtraGroupName(item.group) === 'Puxadores'
+    ? '<label><span>Preco por</span><select data-handle-price-unit="' + index + '"><option value="unit"' + (!['cm', 'meter'].includes(item.priceUnit) ? ' selected' : '') + '>Unidade</option><option value="cm"' + (item.priceUnit === 'cm' ? ' selected' : '') + '>Centimetro (cm)</option>' + (item.priceUnit === 'meter' ? '<option value="meter" selected>Metro (anterior)</option>' : '') + '</select></label>' : '';
   const kitRecipe = ledKitRecipe(item);
   const isDrawerMainItem = normalizeExtraGroupName(item.group) === 'Gavetas';
   const reference = kitRecipe ? ledKitRecipeText(item) : (item.reference || item.label || item.item);
-  const supplierInput = isDrawerMainItem
+  const supplierInput = isDrawerMainItem || handleCm
     ? '<span class="supplier-muted">-</span>'
     : kitRecipe
     ? '<input type="number" min="0" step="0.001" value="" disabled>'
     : '<input type="number" min="0" step="0.001" value="' + supplierNumber(item.supplierPrice) + '" data-extra-price-index="' + index + '">';
   return '<tr' + supplierRowClass(item) + ' data-supplier-search="' + esc([item.group, item.item, item.label, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
-    '<td>' + esc(item.item) + '</td>' +
+    '<td>' + esc(item.item) + handleUseControl + '</td>' +
     '<td>' + (item.supplier ? esc(item.supplier) : '') + '</td>' +
     '<td>' + esc(reference) + '</td>' +
-    '<td>' + supplierInput + '</td>' +
+    '<td>' + supplierInput + priceUnitControl + '</td>' +
     '<td class="supplier-money" data-extra-cost="' + index + '">' + money(item.cost) + '</td>' +
     '<td class="supplier-money" data-extra-client="' + index + '">' + supplierManualPriceInput('extras', index, 'client', item.client) + '</td>' +
     '<td class="supplier-money" data-extra-reseller="' + index + '">' + supplierManualPriceInput('extras', index, 'reseller', item.reseller || item.client) + '</td>' +
@@ -5425,8 +5521,9 @@ function renderPaintingSupplierSection(serviceRows, componentRows) {
 }
 
 function plateSummaryRow(item) {
-  return '<tr data-supplier-search="' + esc([item.name, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
-    '<td>' + esc(plateGroupLabel(item) || item.name) + '</td>' +
+  const title = plateCompareGroupName(item);
+  return '<tr data-supplier-search="' + esc([title, item.name, item.supplier, item.reference].join(' ').toLowerCase()) + '">' +
+    '<td>' + esc(title) + '</td>' +
     '<td>' + esc(item.supplier || '') + '</td>' +
     '<td class="supplier-money">' + money(item.supplierPrice) + '</td>' +
     '<td class="supplier-money">' + supplierManualPriceInput('plates', state.supplierPrices.indexOf(item), 'client', item.client) + '</td>' +
@@ -5924,10 +6021,11 @@ function renderSupplierPrices() {
       const field = event.target.dataset.supplierField;
       const item = state.supplierPrices[index];
       const before = clone(item);
-      item[field] = field === 'supplierPrice' ? num(event.target.value) : event.target.value;
-      if (field === 'reference' && item.reference && !item.compareGroup && (item.userAdded || item.comparisonSource === 'PLACAS_26')) {
-        item.name = canonicalPlateNameFromReference([item.reference, item.name].filter(Boolean).join(' ')) || String(item.reference).trim();
+      if (field === 'reference') {
+        item.compareGroupKey = plateGroupKey(item);
+        item.compareGroup = plateCompareGroupName(item);
       }
+      item[field] = field === 'supplierPrice' ? num(event.target.value) : event.target.value;
       calculateSupplierRow(item);
       if (item.userAdded) updateSupplierAddition('plates', before, item);
       plateDuplicateReferenceKeysCache = null;
@@ -5948,6 +6046,31 @@ function renderSupplierPrices() {
     });
   });
 
+  supplierPricesGrid.querySelectorAll('[data-handle-use]').forEach(function (element) {
+    element.addEventListener('change', function () {
+      const index = Number(element.dataset.handleUse);
+      const item = state.catalog.extras[index];
+      const before = clone(item);
+      item.handleUse = element.value;
+      if (item.userAdded) updateSupplierAddition('extras', before, item);
+      trackSupplierChange('extras', item, index);
+      renderFinal();
+    });
+  });
+  supplierPricesGrid.querySelectorAll('[data-handle-price-unit]').forEach(function (element) {
+    element.addEventListener('change', function () {
+      const index = Number(element.dataset.handlePriceUnit);
+      const item = state.catalog.extras[index];
+      const before = clone(item);
+      item.priceUnit = element.value === 'cm' ? 'cm' : 'unit';
+      if (item.priceUnit === 'cm') Object.assign(item, { cost: 0, supplierPrice: 0, manualClient: true, reseller: item.client, manualReseller: true });
+      if (item.userAdded) updateSupplierAddition('extras', before, item);
+      trackSupplierChange('extras', item, index);
+      renderFinal();
+      scheduleSupplierRecalculation(false);
+      renderSupplierPrices();
+    });
+  });
   supplierPricesGrid.querySelectorAll('[data-extra-price-index]').forEach(function (element) {
     element.addEventListener('input', function (event) {
       const index = Number(event.target.dataset.extraPriceIndex);
@@ -6171,14 +6294,7 @@ function renderSupplierPrices() {
       const list = supplierManualPriceList(type);
       const item = list[index];
       if (!item || (field !== 'client' && field !== 'reseller')) return;
-      const before = clone(item);
-      ensureManualPriceBaseline(item, before);
-      item[field] = type === 'edges' ? num(event.target.value) : roundSaleUp(num(event.target.value));
-      if (field === 'client') item.manualClient = true;
-      if (field === 'reseller') item.manualReseller = true;
-      if (type === 'edges' && field === 'client' && item.manualReseller !== true) item.reseller = item.client;
-      event.target.value = supplierNumber(item[field]);
-      trackManualPriceChange(type, item, index, before);
+      if (!commitSupplierManualPriceInput(event.target)) return;
       renderModules();
       renderFinal();
       calculate({ renderFinal: false }).catch(function (error) { sourceStatus.textContent = error.message; });
@@ -6218,6 +6334,7 @@ async function saveSupplierPlate(item) {
   });
   const data = await readJson(response, {});
   if (!response.ok) throw new Error(data.error || 'Nao foi possivel gravar a madeira no catálogo.');
+  try {
   state.pricingRules = data.rules;
   state.supplierPrices = data.plates;
   normalizeAllPlateNames();
@@ -6246,6 +6363,11 @@ async function saveSupplierPlate(item) {
   renderModules();
   renderFinal();
   await calculate({ renderFinal: false });
+  return true;
+  } catch (error) {
+    console.error('Madeira guardada; falha ao atualizar a pagina:', error);
+    return false;
+  }
 }
 
 async function saveSupplierPrices() {
@@ -6268,6 +6390,7 @@ async function saveSupplierPrices() {
   }
   if (saveButton) saveButton.disabled = true;
   sourceStatus.textContent = 'A guardar preços no catálogo...';
+  let savedSuccessfully = false;
   try {
     const payload = supplierDirtyPayload();
     const response = await fetch('/api/supplier-prices', {
@@ -6277,11 +6400,13 @@ async function saveSupplierPrices() {
     });
     const data = await readJson(response, {});
     if (!response.ok) throw new Error(data.error || 'Nao foi possivel guardar os precos.');
+    savedSuccessfully = true;
+    acknowledgeSupplierChanges(payload);
     state.pricingRules = data.rules;
     state.supplierPrices = data.plates;
     normalizeAllPlateNames();
     data.plates.forEach(function (updated) {
-      const plate = state.catalog.plates.find(function (item) { return item.name === updated.name; });
+      const plate = state.catalog.plates.find(function (item) { return item.catalogId === updated.catalogId; });
       if (plate) Object.assign(plate, updated);
     });
     const bootstrapResponse = await fetch('/api/bootstrap');
@@ -6296,19 +6421,24 @@ async function saveSupplierPrices() {
     normalizeAllPlateNames();
     normalizeCatalogSalePrices();
   }
-    applySupplierPayloadChanges(payload);
     renderSupplierPrices();
     const excel = data.saved || {};
     const total = Number(excel.updated || 0) + Number(excel.updatedPaint || 0) + Number(excel.updatedEdges || 0) +
       Number(excel.updatedDrawers || 0) + Number(excel.updatedSystems || 0) + Number(excel.updatedExtras || 0) +
       Number(excel.insertedPlates || 0) + Number(excel.insertedPlateSuppliers || 0) + Number(excel.updatedComparison || 0);
-    clearSupplierDirtyChanges();
     renderModules();
     renderFinal();
     await calculate({ renderFinal: false });
     sourceStatus.textContent = excel.queued
       ? 'Preços guardados no catálogo.'
       : (total ? 'Preços guardados no catálogo' : 'Guardar terminado');
+    if (hasSupplierDirtyChanges()) sourceStatus.textContent = 'Precos guardados. Existem novas alteracoes por guardar.';
+  } catch (error) {
+    if (!savedSuccessfully) throw error;
+    console.error('Precos guardados; falha ao atualizar a pagina:', error);
+    sourceStatus.textContent = hasSupplierDirtyChanges()
+      ? 'Precos guardados. Existem novas alteracoes por guardar; nao foi possivel atualizar a pagina.'
+      : 'Precos guardados. Atualiza a pagina para atualizar os dados apresentados.';
   } finally {
     if (saveButton) saveButton.disabled = false;
   }
